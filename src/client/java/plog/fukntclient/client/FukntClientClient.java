@@ -8,6 +8,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 import plog.fukntclient.client.GUI.dropdown.DropdownGUI;
+import plog.fukntclient.client.Managers.SeedManager;
 import plog.fukntclient.client.Managers.TargetManager;
 import plog.fukntclient.client.Modules.ModuleManager;
 import plog.fukntclient.client.Modules.impl.Visual.Hud;
@@ -29,6 +30,7 @@ public class FukntClientClient implements ClientModInitializer {
 	public static CommandManager cm;
 	public static FriendManager fm;
 	public static TargetManager tm;
+	public static SeedManager seedManager;
 
 	public static final EventBus EVENT_BUS = new EventBus();
 
@@ -42,6 +44,7 @@ public class FukntClientClient implements ClientModInitializer {
 		cm = new CommandManager();
 		fm = new FriendManager();
 		tm = new TargetManager();
+		seedManager = new SeedManager();
 
 		ConfigManager.loadConfig(); // Loads modules & settings on startup
 		ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ConfigManager.saveConfig()); // Saves when game closes

@@ -13,15 +13,17 @@ import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Modules.Category;
 import plog.fukntclient.client.Modules.Module;
 import plog.fukntclient.client.Modules.ModuleInfo;
+import plog.fukntclient.client.settings.impl.BooleanSetting;
 import plog.fukntclient.client.settings.impl.DoubleSetting;
 
 @ModuleInfo(name = "AutoPlant", description = "Automatically plants seeds on tilled dirt", category = Category.Player)
 public class AutoPlant extends Module {
 
-    public final DoubleSetting range = new DoubleSetting("Range", 4.0, 1.0, 6.0, 0.1);
+    public final DoubleSetting range      = new DoubleSetting("Range", 4.0, 1.0, 6.0, 0.1);
+    public final BooleanSetting equipSeeds = new BooleanSetting("Auto Equip Seeds", true);
 
     public AutoPlant() {
-        addSettings(range);
+        addSettings(range, equipSeeds);
     }
 
     @Override
@@ -32,6 +34,20 @@ public class AutoPlant extends Module {
         int seedSlot = getSeedSlot(mc);
         if (seedSlot == -1) return;
 
+        // If not already holding seeds, either equip them or bail
+        ItemStack held = mc.player.getMainHandItem();
+        boolean holdingSeeds = !held.isEmpty() && held.getItem() instanceof BlockItem bi &&
+                (bi.getBlock() == Blocks.WHEAT || bi.getBlock() == Blocks.CARROTS ||
+                        bi.getBlock() == Blocks.POTATOES || bi.getBlock() == Blocks.BEETROOTS);
+
+        if (!holdingSeeds) {
+            if (equipSeeds.isActive) {
+                mc.player.getInventory().setSelectedSlot(seedSlot);
+            } else {
+                return;
+            }
+        }
+
         BlockPos playerPos = mc.player.blockPosition();
         double r = range.getVal();
 
@@ -40,19 +56,17 @@ public class AutoPlant extends Module {
                 for (int y = (int) -r; y <= r; y++) {
                     BlockPos pos = playerPos.offset(x, y, z);
 
-                    // Check if block is Farmland and the space above is air
                     if (mc.level.getBlockState(pos).is(Blocks.FARMLAND) && mc.level.getBlockState(pos.above()).isAir()) {
-
                         int oldSlot = mc.player.getInventory().getSelectedSlot();
                         mc.player.getInventory().setSelectedSlot(seedSlot);
 
-                        // Perform the placement
                         BlockHitResult hit = new BlockHitResult(new Vec3(pos.getX(), pos.getY(), pos.getZ()), Direction.UP, pos, false);
+                        assert mc.gameMode != null;
                         mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hit);
                         mc.player.swing(InteractionHand.MAIN_HAND);
 
                         mc.player.getInventory().setSelectedSlot(oldSlot);
-                        return; // Plant one per tick to avoid ghost blocks/kicks
+                        return;
                     }
                 }
             }
@@ -61,9 +75,8 @@ public class AutoPlant extends Module {
 
     private int getSeedSlot(Minecraft mc) {
         for (int i = 0; i < 9; i++) {
+            assert mc.player != null;
             ItemStack stack = mc.player.getInventory().getItem(i);
-            // Simple check: Is it a block item that can be placed on farmland?
-            // (Wheat seeds, Carrots, Potatoes, Beetroot seeds, etc.)
             if (!stack.isEmpty() && stack.getItem() instanceof BlockItem bi) {
                 if (bi.getBlock() == Blocks.WHEAT || bi.getBlock() == Blocks.CARROTS ||
                         bi.getBlock() == Blocks.POTATOES || bi.getBlock() == Blocks.BEETROOTS) {

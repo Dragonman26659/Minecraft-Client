@@ -9,19 +9,29 @@ import plog.fukntclient.client.events.PacketEvent;
 
 import java.lang.reflect.Field;
 
-// NoFall.java
-@ModuleInfo(name = "NoFall", description = "Cancels fall damage", category = Category.Movement)
+@ModuleInfo(name = "NoFall", description = "Cancels fall damage by spoofing ground state", category = Category.Movement)
 public class NoFall extends Module {
+
     public NoFall() {}
 
     @Override
     public void onPacketSend(PacketEvent.Send event) {
-        if (!(event.packet instanceof ServerboundMovePlayerPacket packet)) return;
-        if (FukntClientClient.mc.player == null) return;
+        var mc = FukntClientClient.mc;
+        if (mc.player == null) return;
 
-        // Only spoof when we're actually falling and would take damage
-        if (FukntClientClient.mc.player.fallDistance > 2.5f) {
-            event.packet = new ServerboundMovePlayerPacket.StatusOnly(true, true);
+        // Check if the packet is a movement packet
+        if (event.packet instanceof ServerboundMovePlayerPacket packet) {
+            if (mc.player.fallDistance > 3.0f) {
+                try {
+                    Field onGroundField = ServerboundMovePlayerPacket.class.getDeclaredField("onGround");
+                    onGroundField.setAccessible(true);
+                    onGroundField.set(packet, true);
+
+                    mc.player.fallDistance = 0;
+                } catch (Exception e) {
+                    FukntClientClient.LOGGER.error("NoFall reflection failed", e);
+                }
+            }
         }
     }
 }

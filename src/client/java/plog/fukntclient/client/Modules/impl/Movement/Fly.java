@@ -59,6 +59,22 @@ public class Fly extends Module {
             case "Packet"  -> tickPacket(mc);
             case "Vanilla" -> tickVanilla(mc);
         }
+
+        if (antiKick.isActive()) {
+            antiKickTimer++;
+            if (antiKickTimer >= 40) {
+                if (mc.getConnection() != null) {
+                    mc.getConnection().send(new ServerboundMovePlayerPacket.Pos(
+                            mc.player.getX(),
+                            mc.player.getY() - 0.04,
+                            mc.player.getZ(),
+                            false,
+                            false
+                    ));
+                }
+                antiKickTimer = 0;
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -68,25 +84,6 @@ public class Fly extends Module {
     private void tickVanilla(Minecraft mc) {
         mc.player.getAbilities().flying = true;
         mc.player.getAbilities().setFlyingSpeed((float) speed.getVal() * 0.05f);
-
-        if (antiKick.isActive()) {
-            antiKickTimer++;
-            if (antiKickTimer >= 40) { // Slightly faster interval often helps on modern servers
-                // Send a packet shifting position down slightly then back up,
-                // or just a small downward packet to reset the 'floating' timer.
-                if (mc.getConnection() != null) {
-                    double x = mc.player.getX();
-                    double y = mc.player.getY();
-                    double z = mc.player.getZ();
-
-                    // We send a packet slightly below our current position
-                    mc.getConnection().send(new ServerboundMovePlayerPacket.Pos(
-                            x, y - 0.04, z, false, false
-                    ));
-                }
-                antiKickTimer = 0;
-            }
-        }
     }
 
     // -------------------------------------------------------------------------
@@ -110,23 +107,6 @@ public class Fly extends Module {
 
         // Standard move packet logic
         sendGroundSpoof(mc);
-
-        if (antiKick.isActive()) {
-            antiKickTimer++;
-            if (antiKickTimer >= 40) {
-                // For Packet Fly, we can just send a small relative Y update
-                if (mc.getConnection() != null) {
-                    mc.getConnection().send(new ServerboundMovePlayerPacket.Pos(
-                            mc.player.getX(),
-                            mc.player.getY() - 0.04,
-                            mc.player.getZ(),
-                            false,
-                            false
-                    ));
-                }
-                antiKickTimer = 0;
-            }
-        }
     }
 
     // -------------------------------------------------------------------------
