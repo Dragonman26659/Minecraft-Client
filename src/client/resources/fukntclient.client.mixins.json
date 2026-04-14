@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "package": "plog.fukntclient.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ExampleClientMixin",
+    "MixinChatScreen",
+    "MixinClientConnection",
+    "MixinGameRenderer",
+    "MixinPlayerTabOverlay"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+	}
+}
