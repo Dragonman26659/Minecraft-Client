@@ -1,8 +1,7 @@
-package plog.fukntclient.client.Modules.impl.Tools;
+package plog.fukntclient.client.Modules.impl.Player;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;

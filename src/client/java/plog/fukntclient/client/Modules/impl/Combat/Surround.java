@@ -11,7 +11,10 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import plog.fukntclient.client.FukntClientClient;
@@ -28,20 +31,17 @@ import java.util.List;
 @ModuleInfo(name = "Surround", description = "Surrounds a target entity with blocks", category = Category.Combat)
 public class Surround extends Module {
 
-    // --- Target Settings (mirroring CrystalAura) ---
-    public final BooleanSetting targetPlayers  = new BooleanSetting("Target Players",  true);
-    public final BooleanSetting targetMobs     = new BooleanSetting("Target Mobs",     false);
-    public final BooleanSetting targetAnimals  = new BooleanSetting("Target Animals",  false);
-    public final BooleanSetting targetFriends  = new BooleanSetting("Target Friends",  false);
-    public final BooleanSetting targetSelf     = new BooleanSetting("Target Self",     false);
+    public final BooleanSetting targetPlayers = new BooleanSetting("Target Players", true);
+    public final BooleanSetting targetMobs    = new BooleanSetting("Target Mobs",    false);
+    public final BooleanSetting targetAnimals = new BooleanSetting("Target Animals", false);
+    public final BooleanSetting targetFriends = new BooleanSetting("Target Friends", false);
+    public final BooleanSetting targetSelf    = new BooleanSetting("Target Self",    false);
 
-    // --- Block Settings ---
-    public final ModeSetting   pattern        = new ModeSetting("Pattern", "Cardinal", "Full", "Feet");
-    public final BooleanSetting autoEquip     = new BooleanSetting("Auto Equip",      true);
-    public final BooleanSetting rotate        = new BooleanSetting("Rotate",          false);
+    public final ModeSetting    pattern       = new ModeSetting("Pattern", "Cardinal", "Full", "Feet");
+    public final BooleanSetting autoEquip     = new BooleanSetting("Auto Equip", true);
+    public final BooleanSetting rotate        = new BooleanSetting("Rotate",     false);
 
-    // --- Range / Timing ---
-    public final DoubleSetting placeRange     = new DoubleSetting("Place Range",  4.5, 1.0, 8.0, 0.5);
+    public final DoubleSetting placeRange     = new DoubleSetting("Place Range",  4.5, 1.0, 8.0,  0.5);
     public final DoubleSetting targetRange    = new DoubleSetting("Target Range", 6.0, 1.0, 16.0, 0.5);
 
     public Surround() {
@@ -60,14 +60,13 @@ public class Surround extends Module {
         LivingEntity target = findTarget(mc);
         if (target == null) return;
 
-        // Make sure we have a solid block to place
         int originalSlot = mc.player.getInventory().getSelectedSlot();
         boolean slotChanged = false;
 
         boolean holdingBlock = isHoldingPlaceableBlock(mc);
         if (!holdingBlock && autoEquip.isActive()) {
             int blockSlot = findSolidBlockSlot(mc);
-            if (blockSlot == -1) return; // No blocks available
+            if (blockSlot == -1) return;
             mc.player.getInventory().setSelectedSlot(blockSlot);
             slotChanged = true;
         } else if (!holdingBlock) {
@@ -75,35 +74,51 @@ public class Surround extends Module {
         }
 
         List<BlockPos> positions = getSurroundPositions(target);
+        Vec3 eyesPos = mc.player.getEyePosition();
+
+        // Save camera rotation before the placement loop — only matters if rotate is on,
+        // but cheapest to always save and restore unconditionally
+        float savedYaw   = mc.player.getYRot();
+        float savedPitch = mc.player.getXRot();
 
         for (BlockPos pos : positions) {
-            if (!mc.level.isEmptyBlock(pos)) continue; // Already filled
+            if (!mc.level.isEmptyBlock(pos)) continue;
 
-            // Distance check from the player
-            Vec3 center = Vec3.atCenterOf(pos);
-            if (mc.player.position().distanceTo(center) > placeRange.getVal()) continue;
+            for (Direction dir : Direction.values()) {
+                BlockPos neighbor = pos.relative(dir);
 
-            // Find an adjacent solid face to place against
-            Direction face = getAdjacentFace(mc, pos);
-            if (face == null) continue;
+                if (!canBeClicked(mc, neighbor)) continue;
 
-            BlockPos support = pos.relative(face.getOpposite());
-            Vec3 hitVec = Vec3.atCenterOf(support).relative(face, 0.5);
+                Direction faceOnNeighbor = dir.getOpposite();
 
-            if (rotate.isActive()) {
-                faceBlock(mc, hitVec);
+                Vec3 hitVec = Vec3.atCenterOf(neighbor)
+                        .add(Vec3.atLowerCornerOf(dir.getUnitVec3i()).scale(0.5));
+
+                if (eyesPos.distanceToSqr(Vec3.atCenterOf(pos)) >=
+                        eyesPos.distanceToSqr(Vec3.atCenterOf(neighbor)))
+                    continue;
+
+                double rangeSq = Math.min(placeRange.getVal() * placeRange.getVal(), 18.0625);
+                if (eyesPos.distanceToSqr(hitVec) > rangeSq) continue;
+
+                if (rotate.isActive()) faceBlock(mc, hitVec);
+
+                InteractionHand hand = mc.player.getMainHandItem().getItem() instanceof BlockItem
+                        ? InteractionHand.MAIN_HAND
+                        : InteractionHand.OFF_HAND;
+
+                mc.gameMode.useItemOn(
+                        mc.player, hand,
+                        new BlockHitResult(hitVec, faceOnNeighbor, neighbor, false)
+                );
+                mc.player.swing(hand);
+                break;
             }
-
-            InteractionHand hand = mc.player.getMainHandItem().getItem() instanceof BlockItem
-                    ? InteractionHand.MAIN_HAND
-                    : InteractionHand.OFF_HAND;
-
-            mc.gameMode.useItemOn(
-                    mc.player, hand,
-                    new BlockHitResult(hitVec, face, support, false)
-            );
-            mc.player.swing(hand);
         }
+
+        // Restore camera to where the player was looking before any placements
+        mc.player.setYRot(savedYaw);
+        mc.player.setXRot(savedPitch);
 
         if (slotChanged) {
             mc.player.getInventory().setSelectedSlot(originalSlot);
@@ -114,18 +129,8 @@ public class Surround extends Module {
     // Surround pattern generators
     // -------------------------------------------------------------------------
 
-    /**
-     * Returns a list of {@link BlockPos} that should be filled depending on the
-     * selected pattern, centred on the target's block position.
-     *
-     * <ul>
-     *   <li><b>Cardinal</b> – 4 horizontal blocks at foot level only.</li>
-     *   <li><b>Full</b>     – 4 horizontal + 4 diagonal at foot level (8 total).</li>
-     *   <li><b>Feet</b>     – Cardinal at foot level AND one block above (traps legs).</li>
-     * </ul>
-     */
     private List<BlockPos> getSurroundPositions(LivingEntity target) {
-        BlockPos feet = target.blockPosition(); // Y = foot block
+        BlockPos feet = target.blockPosition();
         List<BlockPos> positions = new ArrayList<>();
 
         switch (pattern.getCurrentMode()) {
@@ -146,7 +151,6 @@ public class Surround extends Module {
                 positions.add(feet.south().west());
             }
             case "Feet" -> {
-                // Two layers: foot level and knee level
                 for (BlockPos base : List.of(feet, feet.above())) {
                     positions.add(base.north());
                     positions.add(base.south());
@@ -160,11 +164,10 @@ public class Surround extends Module {
     }
 
     // -------------------------------------------------------------------------
-    // Target selection — mirrors CrystalAura logic
+    // Target selection
     // -------------------------------------------------------------------------
 
     private LivingEntity findTarget(Minecraft mc) {
-        // Self-surround shortcut
         if (targetSelf.isActive()) return mc.player;
 
         LivingEntity best = null;
@@ -185,7 +188,7 @@ public class Surround extends Module {
             } else if (living instanceof Animal) {
                 if (!targetAnimals.isActive()) continue;
             } else {
-                continue; // Unknown entity type — skip
+                continue;
             }
 
             double dist = mc.player.distanceTo(living);
@@ -204,28 +207,9 @@ public class Surround extends Module {
     // Helpers
     // -------------------------------------------------------------------------
 
-    /**
-     * Finds a horizontal or vertical adjacent face of {@code pos} that is
-     * backed by a solid block the player can place against.
-     */
-    private Direction findAdjacentSolidFace(Minecraft mc, BlockPos pos) {
-        for (Direction dir : Direction.values()) {
-            BlockPos neighbour = pos.relative(dir);
-            if (!mc.level.isEmptyBlock(neighbour)) {
-                return dir.getOpposite(); // The face on the target pos side
-            }
-        }
-        return null;
-    }
-
-    private Direction getAdjacentFace(Minecraft mc, BlockPos pos) {
-        for (Direction dir : Direction.values()) {
-            BlockPos neighbour = pos.relative(dir);
-            if (!mc.level.isEmptyBlock(neighbour)) {
-                return dir; // Face of the neighbouring solid block facing our empty pos
-            }
-        }
-        return null;
+    private boolean canBeClicked(Minecraft mc, BlockPos pos) {
+        BlockState state = mc.level.getBlockState(pos);
+        return !state.isAir() && !state.canBeReplaced();
     }
 
     private boolean isHoldingPlaceableBlock(Minecraft mc) {
@@ -233,41 +217,36 @@ public class Surround extends Module {
                 || mc.player.getOffhandItem().getItem() instanceof BlockItem;
     }
 
-    /**
-     * Finds a hotbar slot with a solid, non-interactive block (obsidian preferred,
-     * falling back to any generic solid block item).
-     */
     private int findSolidBlockSlot(Minecraft mc) {
-        // Prefer obsidian for griefing resistance
         for (int i = 0; i < 9; i++) {
             if (mc.player.getInventory().getItem(i).is(Items.OBSIDIAN)) return i;
         }
-        // Fall back to any placeable block
         for (int i = 0; i < 9; i++) {
             var stack = mc.player.getInventory().getItem(i);
-            if (!stack.isEmpty() && stack.getItem() instanceof BlockItem bi) {
-                // Exclude common non-solid/interactive blocks
-                var block = bi.getBlock();
-                if (block != Blocks.CHEST && block != Blocks.CRAFTING_TABLE
-                        && block != Blocks.FURNACE && block != Blocks.TNT) {
-                    return i;
-                }
-            }
+            if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem bi)) continue;
+
+            Block block = bi.getBlock();
+            BlockState state = block.defaultBlockState();
+
+            if (!state.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO))
+                continue;
+
+            if (block == Blocks.CHEST || block == Blocks.CRAFTING_TABLE
+                    || block == Blocks.FURNACE || block == Blocks.TNT)
+                continue;
+
+            return i;
         }
         return -1;
     }
 
-    /**
-     * Rotates the player's yaw/pitch toward the given world position so that
-     * server-side placement validation passes on strict servers.
-     */
     private void faceBlock(Minecraft mc, Vec3 target) {
         Vec3 eyePos = mc.player.getEyePosition(1.0f);
         double dx = target.x - eyePos.x;
         double dy = target.y - eyePos.y;
         double dz = target.z - eyePos.z;
-
         double dist = Math.sqrt(dx * dx + dz * dz);
+
         float yaw   = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f;
         float pitch = (float) -Math.toDegrees(Math.atan2(dy, dist));
 

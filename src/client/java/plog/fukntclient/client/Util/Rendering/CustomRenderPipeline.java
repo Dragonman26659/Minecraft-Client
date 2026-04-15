@@ -18,6 +18,7 @@ import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import lombok.Getter;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
@@ -39,9 +40,8 @@ public class CustomRenderPipeline implements ClientModInitializer {
 
     // ── Singleton ─────────────────────────────────────────────────────────────
 
+    @Getter
     private static CustomRenderPipeline instance;
-
-    public static CustomRenderPipeline getInstance() { return instance; }
 
     // ── Pipelines ─────────────────────────────────────────────────────────────
 
@@ -55,7 +55,7 @@ public class CustomRenderPipeline implements ClientModInitializer {
 
     /** LINES — wireframe edges and tracers */
     private static final RenderPipeline PIPELINE_LINES = RenderPipelines.register(
-            RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
+            RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
                     .withLocation(ResourceLocation.fromNamespaceAndPath(FukntClient.MOD_ID, "pipeline/lines_through_walls"))
                     .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
                     .build()

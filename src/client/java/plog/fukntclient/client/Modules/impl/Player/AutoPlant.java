@@ -1,4 +1,4 @@
-package plog.fukntclient.client.Modules.impl.Tools;
+package plog.fukntclient.client.Modules.impl.Player;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;

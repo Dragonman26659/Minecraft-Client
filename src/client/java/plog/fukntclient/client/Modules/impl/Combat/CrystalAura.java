@@ -46,11 +46,12 @@ public class CrystalAura extends Module {
     public final DoubleSetting damageThreshold  = new DoubleSetting("DThresh",         6.0, 1.0, 20.0, 0.5);
     public final DoubleSetting range            = new DoubleSetting("Break Range",     5.0, 1.0, 10.0, 0.5);
     public final DoubleSetting placeRange       = new DoubleSetting("Place Range",     4.5, 1.0, 10.0, 0.5);
+    public final DoubleSetting minHealth       = new DoubleSetting("Min Health",      8.0, 1.0, 20.0, 0.5);
+    public final DoubleSetting friendPenalty   = new DoubleSetting("Friend Penalty",  3.0, 1.0, 10.0, 0.5);
 
     public CrystalAura() {
         addSettings(autoPlace, targetPlayers, targetMobs, targetAnimals, targetFriends,
-                checkSafety, checkFriend, checkDamage, damageThreshold, range, placeRange,
-                autoEquipCrystal, autoEquipSword);
+                checkSafety, checkFriend, checkDamage, autoEquipCrystal, autoEquipSword, damageThreshold, range, placeRange, minHealth, friendPenalty);
     }
 
     @Override
@@ -104,42 +105,57 @@ public class CrystalAura extends Module {
 
     private void doPlace(Minecraft mc) {
         BlockPos bestPos = null;
-        double maxDamage = 0;
+        double maxScore = Double.NEGATIVE_INFINITY;
 
-        // Search for Obsidian/Bedrock nearby
         int r = (int) Math.ceil(placeRange.getVal());
-        assert mc.player != null;
         BlockPos playerPos = mc.player.blockPosition();
 
         for (int x = -r; x <= r; x++) {
             for (int y = -r; y <= r; y++) {
                 for (int z = -r; z <= r; z++) {
                     BlockPos pos = playerPos.offset(x, y, z);
+                    if (!canPlaceCrystal(mc, pos)) continue;
 
-                    if (canPlaceCrystal(mc, pos)) {
-                        Vec3 center = Vec3.atBottomCenterOf(pos).add(0, 1, 0);
-                        double dist = mc.player.position().distanceTo(center);
-                        if (dist > placeRange.getVal()) continue;
+                    Vec3 center = Vec3.atBottomCenterOf(pos).add(0, 1, 0);
+                    double dist = mc.player.position().distanceTo(center);
+                    if (dist > placeRange.getVal()) continue;
 
-                        // Check self safety before considering this spot
-                        double selfDmg = calculateExplosionDamage(mc.player, center);
-                        if (checkSafety.isActive() && mc.player.getHealth() - selfDmg <= 0) continue;
+                    // Self-safety: block if it would drop us below the minimum health buffer
+                    double selfDmg = calculateExplosionDamage(mc.player, center);
+                    if (checkSafety.isActive() && mc.player.getHealth() - selfDmg <= minHealth.getVal()) continue;
 
-                        double targetDmg = getMaxDamageOnTargets(mc, center);
-                        if (targetDmg > maxDamage) {
-                            maxDamage = targetDmg;
-                            bestPos = pos;
-                        }
+                    double enemyDmg = getMaxDamageOnTargets(mc, center);
+
+                    // Subtract a weighted penalty for any damage dealt to friends
+                    double friendDmg = getTotalFriendDamage(mc, center);
+                    double score = enemyDmg - (friendDmg * friendPenalty.getVal());
+
+                    if (score > maxScore) {
+                        maxScore = score;
+                        bestPos = pos;
                     }
                 }
             }
         }
 
-        if (bestPos != null && maxDamage >= (checkDamage.isActive() ? damageThreshold.getVal() : 1.0)) {
-            InteractionHand hand = mc.player.getMainHandItem().is(Items.END_CRYSTAL) ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
-            assert mc.gameMode != null;
-            mc.gameMode.useItemOn(mc.player, hand, new BlockHitResult(Vec3.atCenterOf(bestPos), Direction.UP, bestPos, false));
+        double threshold = checkDamage.isActive() ? damageThreshold.getVal() : 1.0;
+        if (bestPos != null && maxScore >= threshold) {
+            InteractionHand hand = mc.player.getMainHandItem().is(Items.END_CRYSTAL)
+                    ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+            mc.gameMode.useItemOn(mc.player, hand,
+                    new BlockHitResult(Vec3.atCenterOf(bestPos), Direction.UP, bestPos, false));
         }
+    }
+
+    // New helper: returns total damage that would be dealt to all friends
+    private double getTotalFriendDamage(Minecraft mc, Vec3 explosionPos) {
+        double total = 0;
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (!(entity instanceof Player player) || player == mc.player) continue;
+            if (!FukntClientClient.fm.isFriend(player.getGameProfile().name())) continue;
+            total += calculateExplosionDamage(player, explosionPos);
+        }
+        return total;
     }
 
     private boolean canPlaceCrystal(Minecraft mc, BlockPos pos) {
@@ -155,15 +171,29 @@ public class CrystalAura extends Module {
                 mc.level.getEntities(null, new net.minecraft.world.phys.AABB(new Vec3(air1.getX(), air1.getY(), air1.getZ()), new Vec3(air2.above().getX(), air2.above().getY(), air2.above().getZ()))).isEmpty();
     }
 
+    // Only attack a crystal if the score (enemy damage minus friend penalty) is worth it
     private EndCrystal getBestCrystal(Minecraft mc) {
-        assert mc.level != null;
         return StreamSupport.stream(mc.level.entitiesForRendering().spliterator(), false)
                 .filter(e -> e instanceof EndCrystal)
                 .map(e -> (EndCrystal) e)
                 .filter(c -> mc.player.distanceTo(c) <= range.getVal())
-                .filter(c -> !checkSafety.isActive() || mc.player.getHealth() - calculateExplosionDamage(mc.player, c.position()) > 0)
-                .filter(c -> !checkFriend.isActive() || !wouldHurtFriend(mc, c.position()))
-                .max(Comparator.comparingDouble(c -> getMaxDamageOnTargets(mc, c.position())))
+                .filter(c -> {
+                    if (!checkSafety.isActive()) return true;
+
+                    double selfDmg = calculateExplosionDamage(mc.player, c.position());
+                    double enemyDmg = getMaxDamageOnTargets(mc, c.position());
+
+                    if (mc.player.getHealth() - selfDmg <= minHealth.getVal()) return false;
+
+                    if (selfDmg > 0 && enemyDmg < damageThreshold.getVal()) return false;
+
+                    return true;
+                })
+                .max(Comparator.comparingDouble(c -> {
+                    double enemyDmg = getMaxDamageOnTargets(mc, c.position());
+                    double friendDmg = getTotalFriendDamage(mc, c.position());
+                    return enemyDmg - (friendDmg * friendPenalty.getVal());
+                }))
                 .orElse(null);
     }
 

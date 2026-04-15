@@ -1,4 +1,4 @@
-package plog.fukntclient.client.Modules.impl.Tools;
+package plog.fukntclient.client.Modules.impl.Player;
 
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.projectile.FishingHook;
