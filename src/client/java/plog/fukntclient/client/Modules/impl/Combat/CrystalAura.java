@@ -49,9 +49,12 @@ public class CrystalAura extends Module {
     public final DoubleSetting minHealth       = new DoubleSetting("Min Health",      8.0, 1.0, 20.0, 0.5);
     public final DoubleSetting friendPenalty   = new DoubleSetting("Friend Penalty",  3.0, 1.0, 10.0, 0.5);
 
+    public final BooleanSetting targetEnemies = new BooleanSetting("Target Enemies", true);
+    public final DoubleSetting enemyWeight = new DoubleSetting("Enemy Weight", 2.0, 1.0, 5.0, 0.1);
+
     public CrystalAura() {
-        addSettings(autoPlace, targetPlayers, targetMobs, targetAnimals, targetFriends,
-                checkSafety, checkFriend, checkDamage, autoEquipCrystal, autoEquipSword, damageThreshold, range, placeRange, minHealth, friendPenalty);
+        addSettings(targetPlayers, targetEnemies, targetFriends, targetMobs, targetAnimals,
+                checkSafety, checkFriend, checkDamage, autoPlace, autoEquipCrystal, autoEquipSword, damageThreshold, range, placeRange, minHealth, friendPenalty, enemyWeight);
     }
 
     @Override
@@ -204,11 +207,13 @@ public class CrystalAura extends Module {
             if (living == mc.player) continue;
 
             boolean isFriend = FukntClientClient.fm.isFriend(living.getName().getString());
+            boolean isEnemy = FukntClientClient.fm.isEnemy(living.getName().getString());
 
             // Filtering based on settings
             if (living instanceof Player) {
                 if (isFriend && !targetFriends.isActive()) continue;
                 if (!isFriend && !targetPlayers.isActive()) continue;
+                if (!isEnemy && !targetEnemies.isActive()) continue;
             } else if (living instanceof Monster && !targetMobs.isActive()) {
                 continue;
             } else if (living instanceof Animal && !targetAnimals.isActive()) {

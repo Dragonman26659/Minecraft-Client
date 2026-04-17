@@ -9,7 +9,7 @@ import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Modules.Category;
 import plog.fukntclient.client.Modules.Module;
 import plog.fukntclient.client.Modules.ModuleInfo;
-import plog.fukntclient.client.Util.Render;
+import plog.fukntclient.client.Util.RenderUtil;
 import plog.fukntclient.client.settings.impl.BooleanSetting;
 import plog.fukntclient.client.settings.impl.ColorSetting;
 
@@ -57,7 +57,7 @@ public class Tracers extends Module {
             // If color was assigned (meaning the entity passed our filters), render the line
             if (shouldRender && color != null) {
                 // Using entity.getEyePosition() often looks better for tracers than .position()
-                Render.renderTracer(entity.position(), color);
+                RenderUtil.renderTracer(entity.position(), color);
             }
         }
     }

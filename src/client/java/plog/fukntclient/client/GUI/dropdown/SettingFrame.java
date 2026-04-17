@@ -3,8 +3,7 @@ package plog.fukntclient.client.GUI.dropdown;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.ColorRGBA;
 import org.lwjgl.glfw.GLFW;
-import plog.fukntclient.client.FukntClientClient;
-import plog.fukntclient.client.Util.Render;
+import plog.fukntclient.client.Util.RenderUtil;
 import plog.fukntclient.client.settings.Setting;
 import plog.fukntclient.client.settings.impl.BooleanSetting;
 import plog.fukntclient.client.settings.impl.ColorSetting;
@@ -26,10 +25,10 @@ public class SettingFrame extends Frame {
 
     public SettingFrame(Setting setting, ModuleFrame parent, int x, int y, int width, int height) {
         super(x, y, width, height,
-                new ColorRGBA(Render.pack(42, 42, 47, 255)),
-                new ColorRGBA(Render.pack(52, 52, 58, 255)),
-                new ColorRGBA(Render.pack(42, 42, 47, 255)),
-                new ColorRGBA(Render.pack(220, 220, 220, 255)),
+                new ColorRGBA(RenderUtil.pack(75, 75, 80, 255)),
+                new ColorRGBA(RenderUtil.pack(90, 90, 95, 255)),
+                new ColorRGBA(RenderUtil.pack(75, 75, 80, 255)),
+                new ColorRGBA(RenderUtil.pack(230, 230, 230, 255)),
                 setting.getName());
         this.setting = setting;
         this.parent  = parent;
@@ -80,7 +79,7 @@ public class SettingFrame extends Frame {
             activeChannel = -1;
         }
 
-        Render.renderBox2D(graphics, x, y, width, height, hovered ? hoverColor : mainColor);
+        RenderUtil.renderBox2D(graphics, x, y, width, height, hovered ? hoverColor : mainColor);
 
         if (setting instanceof DoubleSetting ds) {
             // Continuous update if dragging
@@ -89,7 +88,7 @@ public class SettingFrame extends Frame {
             // Render the progress fill for the slider
             double pct = (ds.getVal() - ds.getMinVal()) / (ds.getMaxVal() - ds.getMinVal());
             int fillWidth = (int) (width * pct);
-            Render.renderBox2D(graphics, x, y, fillWidth, height, new ColorRGBA(Render.pack(60, 100, 160, 255)));
+            RenderUtil.renderBox2D(graphics, x, y, fillWidth, height, new ColorRGBA(RenderUtil.pack(60, 100, 160, 255)));
 
         } else if (setting instanceof ColorSetting cs && colorPickerOpen) {
             // Update the active RGB/A slider if currently dragging one
@@ -101,10 +100,10 @@ public class SettingFrame extends Frame {
             String[] labels = {"R", "G", "B", "A"};
             int[] values = {cs.getR(), cs.getG(), cs.getB(), cs.getA()};
             int[] barPackedColors = {
-                    Render.pack(180, 50, 50, 255),  // Red
-                    Render.pack(50, 180, 50, 255),  // Green
-                    Render.pack(50, 80, 200, 255),  // Blue
-                    Render.pack(160, 160, 160, 255) // Alpha
+                    RenderUtil.pack(180, 50, 50, 255),  // Red
+                    RenderUtil.pack(50, 180, 50, 255),  // Green
+                    RenderUtil.pack(50, 80, 200, 255),  // Blue
+                    RenderUtil.pack(160, 160, 160, 255) // Alpha
             };
 
             // Render the 4 RGBA Sliders
@@ -113,21 +112,21 @@ public class SettingFrame extends Frame {
                 double valPct = values[i] / 255.0;
 
                 // Row background
-                Render.renderBox2D(graphics, x, rowY, width, PICKER_ROW_HEIGHT, new ColorRGBA(Render.pack(28, 28, 32, 255)));
+                RenderUtil.renderBox2D(graphics, x, rowY, width, PICKER_ROW_HEIGHT, new ColorRGBA(RenderUtil.pack(28, 28, 32, 255)));
                 // Progress bar
-                Render.renderBox2D(graphics, x, rowY, (int) (width * valPct), PICKER_ROW_HEIGHT, new ColorRGBA(barPackedColors[i]));
+                RenderUtil.renderBox2D(graphics, x, rowY, (int) (width * valPct), PICKER_ROW_HEIGHT, new ColorRGBA(barPackedColors[i]));
                 // Label
-                Render.renderText(graphics, x + 3, rowY + 1, labels[i] + ": " + values[i], textColor, true);
+                RenderUtil.renderText(graphics, x + 3, rowY + 1, labels[i] + ": " + values[i], textColor, true);
             }
 
             // Render the Rainbow Toggle Row
             int rainbowY = y + height + (4 * PICKER_ROW_HEIGHT);
-            int rainbowBg = cs.isRainbow() ? Render.pack(90, 50, 150, 255) : Render.pack(28, 28, 32, 255);
-            Render.renderBox2D(graphics, x, rainbowY, width, PICKER_ROW_HEIGHT, new ColorRGBA(rainbowBg));
-            Render.renderText(graphics, x + 3, rainbowY + 1, "Rainbow: " + (cs.isRainbow() ? "ON" : "OFF"), textColor, true);
+            int rainbowBg = cs.isRainbow() ? RenderUtil.pack(90, 50, 150, 255) : RenderUtil.pack(28, 28, 32, 255);
+            RenderUtil.renderBox2D(graphics, x, rainbowY, width, PICKER_ROW_HEIGHT, new ColorRGBA(rainbowBg));
+            RenderUtil.renderText(graphics, x + 3, rainbowY + 1, "Rainbow: " + (cs.isRainbow() ? "ON" : "OFF"), textColor, true);
 
             // Render the preview swatch on the main setting row
-            Render.renderBox2D(graphics, x + width - height, y, width, height, cs.getColorRGBA());
+            RenderUtil.renderBox2D(graphics, x + width - height, y, width, height, cs.getColorRGBA());
         }
 
         String displayName = text;
@@ -135,8 +134,8 @@ public class SettingFrame extends Frame {
 
         if (setting instanceof BooleanSetting bs) {
             displayColor = bs.isActive()
-                    ? new ColorRGBA(Render.pack(80, 220, 80, 255))
-                    : new ColorRGBA(Render.pack(180, 60, 60, 255));
+                    ? new ColorRGBA(RenderUtil.pack(80, 220, 80, 255))
+                    : new ColorRGBA(RenderUtil.pack(180, 60, 60, 255));
 
         } else if (setting instanceof DoubleSetting ds) {
             displayName += ": " + String.format("%.2f", ds.getVal());
@@ -147,7 +146,7 @@ public class SettingFrame extends Frame {
         } else if (setting instanceof KeySetting ks) {
             if (listeningForKey) {
                 displayName += ": ...";
-                displayColor = new ColorRGBA(Render.pack(220, 80, 80, 255));
+                displayColor = new ColorRGBA(RenderUtil.pack(220, 80, 80, 255));
             } else {
                 displayName += ": " + ks.getKeyChar();
             }
@@ -156,7 +155,7 @@ public class SettingFrame extends Frame {
             displayName += colorPickerOpen ? " ▲" : " ▼";
         }
 
-        Render.renderText(graphics, x + 4, y + (height / 2) - 4, displayName, displayColor, true);
+        RenderUtil.renderText(graphics, x + 4, y + (height / 2) - 4, displayName, displayColor, true);
     }
     @Override
     public void onClick(double mouseX, double mouseY, int button) {
@@ -197,7 +196,6 @@ public class SettingFrame extends Frame {
                 listeningForKey = !listeningForKey;
             }
         } else if (button == 1) {
-            // Right click logic
             if (setting instanceof ModeSetting ms) {
                 ms.cycleBackwards();
             } else if (setting instanceof ColorSetting) {

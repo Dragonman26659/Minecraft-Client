@@ -11,7 +11,7 @@ import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Modules.Category;
 import plog.fukntclient.client.Modules.Module;
 import plog.fukntclient.client.Modules.ModuleInfo;
-import plog.fukntclient.client.Util.Render;
+import plog.fukntclient.client.Util.RenderUtil;
 import plog.fukntclient.client.settings.impl.BooleanSetting;
 import plog.fukntclient.client.settings.impl.ColorSetting;
 
@@ -63,7 +63,7 @@ public class Hud extends Module {
         int startY = 2;
 
         if (background.isActive()) {
-            Render.renderBox2D(graphics,
+            RenderUtil.renderBox2D(graphics,
                     startX - 1, startY - 1,
                     hudWidth + 2, hudHeight + 2,
                     bgColor.getColorRGBA());
@@ -75,9 +75,9 @@ public class Hud extends Module {
             String value = line[1];
             int x = startX + PADDING;
 
-            Render.renderText(graphics, x, y, label, accentColor.getColorRGBA(), true);
+            RenderUtil.renderText(graphics, x, y, label, accentColor.getColorRGBA(), true);
             int labelWidth = mc.font.width(label);
-            Render.renderText(graphics, x + labelWidth, y, value, textColor.getColorRGBA(), true);
+            RenderUtil.renderText(graphics, x + labelWidth, y, value, textColor.getColorRGBA(), true);
 
             y += LINE_HEIGHT;
         }
@@ -112,12 +112,15 @@ public class Hud extends Module {
         }
 
         if (showTarget.isActive() && FukntClientClient.tm.hasTarget()) {
-            BlockPos pos = FukntClientClient.tm.getTargetPos();
-            double dist = mc.player.distanceToSqr(pos.getX(), pos.getY(), pos.getZ());
+            String currentDim = mc.level.dimension().location().toString();
+            // Get the coordinates scaled correctly for the dimension we are currently in
+            BlockPos scaledPos = FukntClientClient.tm.getScaledPos(currentDim);
+
+            double dist = mc.player.distanceToSqr(scaledPos.getX(), scaledPos.getY(), scaledPos.getZ());
             String distStr = String.format("%.1fm", Math.sqrt(dist));
 
-            // Calculate if looking at target
-            String directionStatus = isLookingAt(mc, pos) ? "§aLocked" : "§cAway";
+            // Calculate if looking at the scaled target
+            String directionStatus = isLookingAt(mc, scaledPos) ? "§aLocked" : "§cAway";
 
             lines.add(new String[]{"Target: ", distStr + " (" + directionStatus + "§r)"});
         }
@@ -184,13 +187,13 @@ public class Hud extends Module {
             int x        = screenW - textW - PADDING - 2;
 
             if (background.isActive()) {
-                Render.renderBox2D(graphics,
+                RenderUtil.renderBox2D(graphics,
                         x - PADDING, y - 1,
                         textW + PADDING * 2, LINE_HEIGHT + 1,
                         bgColor.getColorRGBA());
             }
 
-            Render.renderText(graphics, x, y, name, accentColor.getColorRGBA(), true);
+            RenderUtil.renderText(graphics, x, y, name, accentColor.getColorRGBA(), true);
             y += LINE_HEIGHT;
         }
     }

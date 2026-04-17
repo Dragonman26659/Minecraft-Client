@@ -6,7 +6,7 @@ import net.minecraft.util.ColorRGBA;
 import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Modules.Category;
 import plog.fukntclient.client.Modules.Module;
-import plog.fukntclient.client.Util.Render;
+import plog.fukntclient.client.Util.RenderUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,10 +25,10 @@ public class CategoryFrame extends Frame {
 
     public CategoryFrame(Category cat, int x, int y, int width, int height) {
         super(x, y, width, height,
-                new ColorRGBA(Render.pack(30, 30, 33, 255)),
-                new ColorRGBA(Render.pack(40, 40, 44, 255)),
-                new ColorRGBA(Render.pack(25, 25, 60, 255)),
-                new ColorRGBA(Render.pack(255, 255, 255, 255)),
+                new ColorRGBA(RenderUtil.pack(30, 30, 33, 255)),
+                new ColorRGBA(RenderUtil.pack(40, 40, 44, 255)),
+                new ColorRGBA(RenderUtil.pack(25, 25, 60, 255)),
+                new ColorRGBA(RenderUtil.pack(255, 255, 255, 255)),
                 cat.name());
         this.cat = cat;
 
@@ -55,8 +55,8 @@ public class CategoryFrame extends Frame {
         }
 
         // Header
-        Render.renderBox2D(graphics, x, y, width, height, extended ? enabledColor : mainColor);
-        Render.renderText(graphics,
+        RenderUtil.renderBox2D(graphics, x, y, width, height, extended ? enabledColor : mainColor);
+        RenderUtil.renderText(graphics,
                 x + (width / 2) - (FukntClientClient.mc.font.width(text) / 2),
                 y + (height / 2) - 4,
                 text, textColor, true);
@@ -92,10 +92,10 @@ public class CategoryFrame extends Frame {
             int sbH = Math.max(12, (int) ((visibleHeight / (float) contentHeight) * visibleHeight));
             int sbY = clipTop + (int) ((scrollOffset / (float) maxScroll) * (visibleHeight - sbH));
 
-            Render.renderBox2D(graphics, sbX, clipTop, 2, visibleHeight,
-                    new ColorRGBA(Render.pack(45, 45, 50, 255)));
-            Render.renderBox2D(graphics, sbX, sbY, 2, sbH,
-                    new ColorRGBA(Render.pack(160, 160, 180, 255)));
+            RenderUtil.renderBox2D(graphics, sbX, clipTop, 2, visibleHeight,
+                    new ColorRGBA(RenderUtil.pack(45, 45, 50, 255)));
+            RenderUtil.renderBox2D(graphics, sbX, sbY, 2, sbH,
+                    new ColorRGBA(RenderUtil.pack(160, 160, 180, 255)));
         }
     }
 

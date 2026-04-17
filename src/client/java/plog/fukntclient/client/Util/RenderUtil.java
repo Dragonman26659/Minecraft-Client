@@ -4,10 +4,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.ColorRGBA;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import plog.fukntclient.client.Util.Rendering.CustomRenderPipeline;
 
-public class Render {
+public class RenderUtil {
     private static final Minecraft mc = Minecraft.getInstance();
 
     // ── World ─────────────────────────────────────────────────────────────────
@@ -18,9 +19,9 @@ public class Render {
     public static void renderWireFrame(BlockPos position, ColorRGBA color) {
         CustomRenderPipeline pipeline = CustomRenderPipeline.getInstance();
         if (pipeline == null) return;
-        pipeline.queueWireFrame(
-                position.getX(), position.getY(), position.getZ(),
-                position.getX() + 1f, position.getY() + 1f, position.getZ() + 1f,
+        float x = position.getX(), y = position.getY(), z = position.getZ();
+        pipeline.queueCornerBox(
+                x, y, z, x + 1f, y + 1f, z + 1f,
                 red(color), green(color), blue(color), alpha(color)
         );
     }
@@ -56,8 +57,28 @@ public class Render {
     public static void renderTracer(Vec3 target, ColorRGBA color) {
         CustomRenderPipeline pipeline = CustomRenderPipeline.getInstance();
         if (pipeline == null) return;
-        pipeline.queueTracer(
+        pipeline.queueTracerRibbon(
                 (float) target.x, (float) target.y + 0.5f, (float) target.z,
+                red(color), green(color), blue(color), alpha(color)
+        );
+    }
+
+    public static void renderWireFrameAABB(AABB bb, ColorRGBA color) {
+        CustomRenderPipeline pipeline = CustomRenderPipeline.getInstance();
+        if (pipeline == null) return;
+        pipeline.queueCornerBox(
+                (float) bb.minX, (float) bb.minY, (float) bb.minZ,
+                (float) bb.maxX, (float) bb.maxY, (float) bb.maxZ,
+                red(color), green(color), blue(color), alpha(color)
+        );
+    }
+
+    public static void renderFilledBoxAABB(AABB bb, ColorRGBA color) {
+        CustomRenderPipeline pipeline = CustomRenderPipeline.getInstance();
+        if (pipeline == null) return;
+        pipeline.queueFilledBox(
+                (float) bb.minX, (float) bb.minY, (float) bb.minZ,
+                (float) bb.maxX, (float) bb.maxY, (float) bb.maxZ,
                 red(color), green(color), blue(color), alpha(color)
         );
     }

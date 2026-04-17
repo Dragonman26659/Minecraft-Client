@@ -4,5 +4,5 @@ public enum Category {
     Combat,
     Player,
     Visual,
-    Movement
+    Movement,
 }

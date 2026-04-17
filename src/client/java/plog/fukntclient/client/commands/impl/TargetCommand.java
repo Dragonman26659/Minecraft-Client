@@ -1,18 +1,18 @@
 package plog.fukntclient.client.commands.impl;
 
-import net.minecraft.core.BlockPos;
 import plog.fukntclient.client.FukntClientClient;
+import plog.fukntclient.client.Managers.LocationData;
 import plog.fukntclient.client.commands.Command;
 import plog.fukntclient.client.commands.CommandInfo;
 import plog.fukntclient.client.exeption.CommandException;
 
-@CommandInfo(name = "target", usage = "#target <x> <y> <z> (or .target clear)", description = "Sets a HUD target destination", aliases = {"settarget", "goal"})
+@CommandInfo(name = "target", usage = "#target <x> <y> <z> (or #target clear)", description = "Sets a HUD target destination", aliases = {"settarget", "goal"})
 public class TargetCommand extends Command {
 
     @Override
     public void execute(String... args) throws CommandException {
         if (args.length == 1 && args[0].equalsIgnoreCase("clear")) {
-            FukntClientClient.tm.setTargetPos(null);
+            FukntClientClient.tm.setTarget(null);
             sendMessage("§aTarget cleared.");
             return;
         }
@@ -26,8 +26,11 @@ public class TargetCommand extends Command {
             int y = Integer.parseInt(args[1]);
             int z = Integer.parseInt(args[2]);
 
-            FukntClientClient.tm.setTargetPos(new BlockPos(x, y, z));
-            sendMessage(String.format("§aTarget set to §f%d, %d, %d", x, y, z));
+            // Capture the dimension the player is in when they run the command
+            String currentDim = FukntClientClient.mc.level.dimension().location().toString();
+
+            FukntClientClient.tm.setTarget(new LocationData(x, y, z, currentDim));
+            sendMessage(String.format("§aTarget set to §f%d, %d, %d §ain dimension §f%s", x, y, z, currentDim.replace("minecraft:", "")));
         } catch (NumberFormatException e) {
             throw new CommandException("Coordinates must be integers!");
         }

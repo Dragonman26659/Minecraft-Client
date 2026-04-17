@@ -9,8 +9,7 @@ import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.ColorRGBA;
 import org.jetbrains.annotations.NotNull;
-import plog.fukntclient.client.FukntClientClient;
-import plog.fukntclient.client.Util.Render;
+import plog.fukntclient.client.Util.RenderUtil;
 
 public class Frame extends AbstractWidget {
     public int x, y;
@@ -49,11 +48,11 @@ public class Frame extends AbstractWidget {
 
         ColorRGBA bg = enabled ? enabledColor : (hovered ? hoverColor : mainColor);
 
-        Render.renderBox2D(graphics, x, y, width, height, bg);
+        RenderUtil.renderBox2D(graphics, x, y, width, height, bg);
 
         int tStart = x + textAreaStart;
 
-        Render.renderText(graphics, tStart, y, text, textColor, true);
+        RenderUtil.renderText(graphics, tStart, y, text, textColor, true);
     }
 
     @Override

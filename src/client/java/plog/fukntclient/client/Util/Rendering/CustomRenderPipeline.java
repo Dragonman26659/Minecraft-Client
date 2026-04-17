@@ -98,10 +98,19 @@ public class CustomRenderPipeline implements ClientModInitializer {
     private record TracerCmd(float tx, float ty, float tz,
                              float r,  float g,  float b, float a) {}
 
+    private record CornerBoxCmd(float x0, float y0, float z0,
+                                float x1, float y1, float z1,
+                                float r,  float g,  float b, float a) {}
+
+    private record TracerRibbonCmd(float tx, float ty, float tz,
+                                   float r,  float g,  float b, float a) {}
+
     private final List<FilledBoxCmd>  filledQueue  = new ArrayList<>();
     private final List<BaseFilledCmd> baseQueue    = new ArrayList<>();
     private final List<WireFrameCmd>  wireQueue    = new ArrayList<>();
     private final List<TracerCmd>     tracerQueue  = new ArrayList<>();
+    private final List<CornerBoxCmd> cornerQueue = new ArrayList<>();
+    private final List<TracerRibbonCmd> tracerRibbonQueue = new ArrayList<>();
 
     // ── Public queue API (called by Render.java) ──────────────────────────────
 
@@ -127,6 +136,17 @@ public class CustomRenderPipeline implements ClientModInitializer {
         tracerQueue.add(new TracerCmd(tx, ty, tz, r, g, b, a));
     }
 
+    public void queueCornerBox(float x0, float y0, float z0,
+                               float x1, float y1, float z1,
+                               float r, float g, float b, float a) {
+        cornerQueue.add(new CornerBoxCmd(x0, y0, z0, x1, y1, z1, r, g, b, a));
+    }
+
+    public void queueTracerRibbon(float tx, float ty, float tz,
+                                  float r, float g, float b, float a) {
+        tracerRibbonQueue.add(new TracerRibbonCmd(tx, ty, tz, r, g, b, a));
+    }
+
     // ── ClientModInitializer ──────────────────────────────────────────────────
 
     @Override
@@ -138,8 +158,9 @@ public class CustomRenderPipeline implements ClientModInitializer {
     // ── Render event ─────────────────────────────────────────────────────────
 
     private void onRender(WorldRenderContext context) {
-        if (filledQueue.isEmpty() && baseQueue.isEmpty()
-                && wireQueue.isEmpty() && tracerQueue.isEmpty()) return;
+        if (filledQueue.isEmpty() && baseQueue.isEmpty() && cornerQueue.isEmpty()
+                && wireQueue.isEmpty() && tracerQueue.isEmpty()
+                && tracerRibbonQueue.isEmpty()) return;
 
         PoseStack matrices = context.matrices();
         Vec3 camera = context.worldState().cameraRenderState.pos;
@@ -147,7 +168,8 @@ public class CustomRenderPipeline implements ClientModInitializer {
         // ── Extraction: write all queued geometry into the BufferBuilders ──────
 
         // Filled (QUADS)
-        if (!filledQueue.isEmpty() || !baseQueue.isEmpty()) {
+        if (!filledQueue.isEmpty() || !baseQueue.isEmpty() || !cornerQueue.isEmpty()
+                || !tracerRibbonQueue.isEmpty()) {
             bufFilled = new BufferBuilder(allocatorFilled,
                     PIPELINE_FILLED.getVertexFormatMode(),
                     PIPELINE_FILLED.getVertexFormat());
@@ -169,7 +191,24 @@ public class CustomRenderPipeline implements ClientModInitializer {
                         cmd.r(), cmd.g(), cmd.b(), cmd.a());
             }
 
+            for (CornerBoxCmd cmd : cornerQueue) {
+                writeCornerBox(mat, bufFilled,
+                        cmd.x0(), cmd.y0(), cmd.z0(),
+                        cmd.x1(), cmd.y1(), cmd.z1(),
+                        cmd.r(), cmd.g(), cmd.b(), cmd.a());
+            }
+
+            for (TracerRibbonCmd cmd : tracerRibbonQueue) {
+                writeTracerRibbon(mat, bufFilled,
+                        (float) camera.x, (float) camera.y, (float) camera.z,
+                        cmd.tx(), cmd.ty(), cmd.tz(),
+                        cmd.r(), cmd.g(), cmd.b(), cmd.a());
+            }
+
+
             matrices.popPose();
+            tracerRibbonQueue.clear();
+            cornerQueue.clear();
             filledQueue.clear();
             baseQueue.clear();
         }
@@ -380,6 +419,141 @@ public class CustomRenderPipeline implements ClientModInitializer {
         mesh.close();
         ringBuffer.rotate();
         return ringBuffer;
+    }
+
+    private static void writeCornerBox(Matrix4f mat, BufferBuilder buf,
+                                       float x0, float y0, float z0,
+                                       float x1, float y1, float z1,
+                                       float r, float g, float b, float a) {
+        float t  = 0.02f; // thickness of each edge quad
+
+        float lx = (x1 - x0), ly = (y1 - y0), lz = (z1 - z0);
+        float cx = Math.min(lx * 0.4f, 0.2f);
+        float cy = Math.min(ly * 0.4f, 0.2f);
+        float cz = Math.min(lz * 0.4f, 0.2f);
+
+        // ── 4 bottom corners ──────────────────────────────────────────────────────
+        // Each corner: one segment along X, one along Z, one along Y (vertical)
+
+        // Corner (x0, y0, z0)
+        filledQuadX(buf,mat, x0,     y0-t, z0-t,  x0+cx,  y0,   z0,   r,g,b,a); // along +X
+        filledQuadZ(buf,mat, x0-t,   y0-t, z0,     x0,     y0,   z0+cz,r,g,b,a); // along +Z
+        filledQuadY(buf,mat, x0-t,   y0,   z0-t,   x0,     y0+cy,z0,   r,g,b,a); // along +Y
+
+        // Corner (x1, y0, z0)
+        filledQuadX(buf,mat, x1-cx,  y0-t, z0-t,  x1,     y0,   z0,   r,g,b,a); // along -X
+        filledQuadZ(buf,mat, x1,     y0-t, z0,     x1+t,   y0,   z0+cz,r,g,b,a); // along +Z
+        filledQuadY(buf,mat, x1,     y0,   z0-t,   x1+t,   y0+cy,z0,   r,g,b,a); // along +Y
+
+        // Corner (x0, y0, z1)
+        filledQuadX(buf,mat, x0,     y0-t, z1,     x0+cx,  y0,   z1+t, r,g,b,a); // along +X
+        filledQuadZ(buf,mat, x0-t,   y0-t, z1-cz,  x0,     y0,   z1,   r,g,b,a); // along -Z
+        filledQuadY(buf,mat, x0-t,   y0,   z1,     x0,     y0+cy,z1+t, r,g,b,a); // along +Y
+
+        // Corner (x1, y0, z1)
+        filledQuadX(buf,mat, x1-cx,  y0-t, z1,     x1,     y0,   z1+t, r,g,b,a); // along -X
+        filledQuadZ(buf,mat, x1,     y0-t, z1-cz,  x1+t,   y0,   z1,   r,g,b,a); // along -Z
+        filledQuadY(buf,mat, x1,     y0,   z1,     x1+t,   y0+cy,z1+t, r,g,b,a); // along +Y
+
+        // ── 4 top corners (mirror of bottom, Y flipped) ───────────────────────────
+
+        // Corner (x0, y1, z0)
+        filledQuadX(buf,mat, x0,     y1,   z0-t,  x0+cx,  y1+t,  z0,   r,g,b,a);
+        filledQuadZ(buf,mat, x0-t,   y1,   z0,     x0,     y1+t,  z0+cz,r,g,b,a);
+        filledQuadY(buf,mat, x0-t,   y1-cy,z0-t,   x0,     y1,    z0,   r,g,b,a);
+
+        // Corner (x1, y1, z0)
+        filledQuadX(buf,mat, x1-cx,  y1,   z0-t,  x1,     y1+t,  z0,   r,g,b,a);
+        filledQuadZ(buf,mat, x1,     y1,   z0,     x1+t,   y1+t,  z0+cz,r,g,b,a);
+        filledQuadY(buf,mat, x1,     y1-cy,z0-t,   x1+t,   y1,    z0,   r,g,b,a);
+
+        // Corner (x0, y1, z1)
+        filledQuadX(buf,mat, x0,     y1,   z1,     x0+cx,  y1+t,  z1+t, r,g,b,a);
+        filledQuadZ(buf,mat, x0-t,   y1,   z1-cz,  x0,     y1+t,  z1,   r,g,b,a);
+        filledQuadY(buf,mat, x0-t,   y1-cy,z1,     x0,     y1,    z1+t, r,g,b,a);
+
+        // Corner (x1, y1, z1)
+        filledQuadX(buf,mat, x1-cx,  y1,   z1,     x1,     y1+t,  z1+t, r,g,b,a);
+        filledQuadZ(buf,mat, x1,     y1,   z1-cz,  x1+t,   y1+t,  z1,   r,g,b,a);
+        filledQuadY(buf,mat, x1,     y1-cy,z1,     x1+t,   y1,    z1+t, r,g,b,a);
+    }
+
+    private static void writeTracerRibbon(Matrix4f mat, BufferBuilder buf,
+                                          float cx, float cy, float cz,
+                                          float tx, float ty, float tz,
+                                          float r, float g, float b, float a) {
+        float t = 0.004f;
+
+        float dx = tx - cx, dy = ty - cy, dz = tz - cz;
+        float len = (float) Math.sqrt(dx*dx + dy*dy + dz*dz);
+        if (len == 0) return;
+        dx /= len; dy /= len; dz /= len;
+
+        // Perpendicular axis in XZ plane (horizontal offset)
+        float ax = -dz, az = dx;
+        float aLen = (float) Math.sqrt(ax*ax + az*az);
+        if (aLen > 0.001f) { ax /= aLen; az /= aLen; }
+        else               { ax = 1;     az = 0; }
+
+        // Perpendicular axis in vertical plane
+        float bx = dy*az,
+                by = dz*ax - dx*az,
+                bz = -dy*ax;
+
+        // Emit each quad twice (both winding orders) so it's visible from both sides
+
+        // Quad A — horizontal
+        buf.addVertex(mat, cx+ax*t, cy,      cz+az*t).setColor(r,g,b,a);
+        buf.addVertex(mat, cx-ax*t, cy,      cz-az*t).setColor(r,g,b,a);
+        buf.addVertex(mat, tx-ax*t, ty,      tz-az*t).setColor(r,g,b,a);
+        buf.addVertex(mat, tx+ax*t, ty,      tz+az*t).setColor(r,g,b,a);
+        // Back face
+        buf.addVertex(mat, tx+ax*t, ty,      tz+az*t).setColor(r,g,b,a);
+        buf.addVertex(mat, tx-ax*t, ty,      tz-az*t).setColor(r,g,b,a);
+        buf.addVertex(mat, cx-ax*t, cy,      cz-az*t).setColor(r,g,b,a);
+        buf.addVertex(mat, cx+ax*t, cy,      cz+az*t).setColor(r,g,b,a);
+
+        // Quad B — vertical
+        buf.addVertex(mat, cx+bx*t, cy+by*t, cz+bz*t).setColor(r,g,b,a);
+        buf.addVertex(mat, cx-bx*t, cy-by*t, cz-bz*t).setColor(r,g,b,a);
+        buf.addVertex(mat, tx-bx*t, ty-by*t, tz-bz*t).setColor(r,g,b,a);
+        buf.addVertex(mat, tx+bx*t, ty+by*t, tz+bz*t).setColor(r,g,b,a);
+        // Back face
+        buf.addVertex(mat, tx+bx*t, ty+by*t, tz+bz*t).setColor(r,g,b,a);
+        buf.addVertex(mat, tx-bx*t, ty-by*t, tz-bz*t).setColor(r,g,b,a);
+        buf.addVertex(mat, cx-bx*t, cy-by*t, cz-bz*t).setColor(r,g,b,a);
+        buf.addVertex(mat, cx+bx*t, cy+by*t, cz+bz*t).setColor(r,g,b,a);
+    }
+
+    /** Flat quad facing up/down — used for X-axis and Z-axis edge segments */
+    private static void filledQuadX(BufferBuilder buf, Matrix4f mat,
+                                    float x0, float y0, float z0,
+                                    float x1, float y1, float z1,
+                                    float r, float g, float b, float a) {
+        buf.addVertex(mat, x0, y0, z0).setColor(r,g,b,a);
+        buf.addVertex(mat, x1, y0, z0).setColor(r,g,b,a);
+        buf.addVertex(mat, x1, y1, z1).setColor(r,g,b,a);
+        buf.addVertex(mat, x0, y1, z1).setColor(r,g,b,a);
+    }
+
+    private static void filledQuadZ(BufferBuilder buf, Matrix4f mat,
+                                    float x0, float y0, float z0,
+                                    float x1, float y1, float z1,
+                                    float r, float g, float b, float a) {
+        buf.addVertex(mat, x0, y0, z0).setColor(r,g,b,a);
+        buf.addVertex(mat, x0, y1, z1).setColor(r,g,b,a);
+        buf.addVertex(mat, x1, y1, z1).setColor(r,g,b,a);
+        buf.addVertex(mat, x1, y0, z0).setColor(r,g,b,a);
+    }
+
+    private static void filledQuadY(BufferBuilder buf, Matrix4f mat,
+                                    float x0, float y0, float z0,
+                                    float x1, float y1, float z1,
+                                    float r, float g, float b, float a) {
+        buf.addVertex(mat, x0, y0, z0).setColor(r,g,b,a);
+        buf.addVertex(mat, x1, y0, z0).setColor(r,g,b,a);
+        buf.addVertex(mat, x1, y1, z1).setColor(r,g,b,a);
+        buf.addVertex(mat, x0, y1, z1).setColor(r,g,b,a);
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────────

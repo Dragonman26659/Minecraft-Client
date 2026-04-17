@@ -11,7 +11,7 @@ import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Modules.Category;
 import plog.fukntclient.client.Modules.Module;
 import plog.fukntclient.client.Modules.ModuleInfo;
-import plog.fukntclient.client.Util.Render;
+import plog.fukntclient.client.Util.RenderUtil;
 import plog.fukntclient.client.settings.impl.ColorSetting;
 
 @ModuleInfo(name = "ChestESP", description = "Highlights nearby chests", category = Category.Visual)
@@ -42,13 +42,13 @@ public class ChestESP extends Module {
                     BlockPos pos = entity.getBlockPos();
 
                     if (entity instanceof ChestBlockEntity || entity instanceof TrappedChestBlockEntity) {
-                        Render.renderFilledBox(pos, chestColor.getColorRGBA());
+                        RenderUtil.renderFilledBox(pos, chestColor.getColorRGBA());
                     } else if (entity instanceof EnderChestBlockEntity) {
-                        Render.renderFilledBox(pos, eChestColor.getColorRGBA());
+                        RenderUtil.renderFilledBox(pos, eChestColor.getColorRGBA());
                     } else if (entity instanceof ShulkerBoxBlockEntity) {
-                        Render.renderFilledBox(pos, shulkerColor.getColorRGBA());
+                        RenderUtil.renderFilledBox(pos, shulkerColor.getColorRGBA());
                     } else if (entity instanceof BarrelBlockEntity) {
-                        Render.renderFilledBox(pos, barrelColor.getColorRGBA());
+                        RenderUtil.renderFilledBox(pos, barrelColor.getColorRGBA());
                     }
                 }
             }

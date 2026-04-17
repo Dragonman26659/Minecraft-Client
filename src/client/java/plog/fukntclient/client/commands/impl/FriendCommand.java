@@ -15,12 +15,12 @@ public class FriendCommand extends Command {
         switch (args[0].toLowerCase()) {
             case "add" -> {
                 if (args.length < 2) throw new CommandException("Specify a player name");
-                FukntClientClient.fm.add(args[1]);
+                FukntClientClient.fm.addFriend(args[1]);
                 sendMessage("§a+" + args[1] + " added as friend");
             }
             case "remove" -> {
                 if (args.length < 2) throw new CommandException("Specify a player name");
-                FukntClientClient.fm.remove(args[1]);
+                FukntClientClient.fm.removeFriend(args[1]);
                 sendMessage("§c-" + args[1] + " removed from friends");
             }
             case "list" -> {

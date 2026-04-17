@@ -2,9 +2,8 @@ package plog.fukntclient.client.GUI.dropdown;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.ColorRGBA;
-import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Modules.Module;
-import plog.fukntclient.client.Util.Render;
+import plog.fukntclient.client.Util.RenderUtil;
 import plog.fukntclient.client.settings.Setting;
 
 import java.util.ArrayList;
@@ -17,10 +16,10 @@ public class ModuleFrame extends Frame {
 
     public ModuleFrame(Module mod, int x, int y, int width, int height) {
         super(x, y, width, height,
-                new ColorRGBA(Render.pack(35, 35, 40, 255)),
-                new ColorRGBA(Render.pack(45, 45, 50, 255)),
-                new ColorRGBA(Render.pack(35, 35, 40, 255)),
-                new ColorRGBA(Render.pack(255, 255, 255, 255)),
+                new ColorRGBA(RenderUtil.pack(35, 35, 40, 255)),
+                new ColorRGBA(RenderUtil.pack(45, 45, 50, 255)),
+                new ColorRGBA(RenderUtil.pack(35, 35, 40, 255)),
+                new ColorRGBA(RenderUtil.pack(255, 255, 255, 255)),
                 mod.getName());
         this.mod = mod;
 
@@ -33,12 +32,12 @@ public class ModuleFrame extends Frame {
     public void render(GuiGraphics graphics, int mouseX, int mouseY) {
         hovered = isMouseOver(mouseX, mouseY);
 
-        Render.renderBox2D(graphics, x, y, width, height, hovered ? hoverColor : mainColor);
+        RenderUtil.renderBox2D(graphics, x, y, width, height, hovered ? hoverColor : mainColor);
 
         ColorRGBA nameColor = mod.isToggled()
-                ? new ColorRGBA(Render.pack(80, 220, 80, 255))
+                ? new ColorRGBA(RenderUtil.pack(80, 220, 80, 255))
                 : textColor;
-        Render.renderText(graphics, x + 4, y + (height / 2) - 4, mod.getName(), nameColor, true);
+        RenderUtil.renderText(graphics, x + 4, y + (height / 2) - 4, mod.getName(), nameColor, true);
 
         if (extended) {
             int sOffset = height;

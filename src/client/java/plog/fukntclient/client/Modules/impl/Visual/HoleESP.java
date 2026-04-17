@@ -6,7 +6,7 @@ import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Modules.Category;
 import plog.fukntclient.client.Modules.Module;
 import plog.fukntclient.client.Modules.ModuleInfo;
-import plog.fukntclient.client.Util.Render;
+import plog.fukntclient.client.Util.RenderUtil;
 import plog.fukntclient.client.settings.impl.ColorSetting;
 import plog.fukntclient.client.settings.impl.DoubleSetting;
 
@@ -63,9 +63,9 @@ public class HoleESP extends Module {
 
         // Render logic
         if (bedrockCount == 5) {
-            Render.renderBaseFilled(pos, safeColor.getColorRGBA());
+            RenderUtil.renderBaseFilled(pos, safeColor.getColorRGBA());
         } else if (bedrockCount + obsidianCount == 5) {
-            Render.renderBaseFilled(pos, obiColor.getColorRGBA());
+            RenderUtil.renderBaseFilled(pos, obiColor.getColorRGBA());
         }
     }
 }

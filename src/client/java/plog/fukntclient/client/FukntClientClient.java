@@ -8,13 +8,14 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 import plog.fukntclient.client.GUI.dropdown.DropdownGUI;
+import plog.fukntclient.client.Managers.MarkManager;
 import plog.fukntclient.client.Managers.SeedManager;
 import plog.fukntclient.client.Managers.TargetManager;
 import plog.fukntclient.client.Modules.ModuleManager;
 import plog.fukntclient.client.Modules.impl.Visual.Hud;
 import plog.fukntclient.client.commands.CommandManager;
 import plog.fukntclient.client.events.EventBus;
-import plog.fukntclient.client.friend.FriendManager;
+import plog.fukntclient.client.Managers.SocialManager;
 import plog.fukntclient.client.settings.SettingManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,9 +29,10 @@ public class FukntClientClient implements ClientModInitializer {
 	public static ModuleManager mm;
 	public static SettingManager sm;
 	public static CommandManager cm;
-	public static FriendManager fm;
+	public static SocialManager fm;
 	public static TargetManager tm;
 	public static SeedManager seedManager;
+	public static MarkManager markManager;
 
 	public static final EventBus EVENT_BUS = new EventBus();
 
@@ -42,9 +44,10 @@ public class FukntClientClient implements ClientModInitializer {
 		mm = new ModuleManager();
 		sm = new SettingManager();
 		cm = new CommandManager();
-		fm = new FriendManager();
+		fm = new SocialManager();
 		tm = new TargetManager();
 		seedManager = new SeedManager();
+		markManager = new MarkManager();
 
 		ConfigManager.loadConfig(); // Loads modules & settings on startup
 		ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ConfigManager.saveConfig()); // Saves when game closes

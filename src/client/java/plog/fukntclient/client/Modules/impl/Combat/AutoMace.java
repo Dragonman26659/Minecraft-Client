@@ -65,7 +65,7 @@ public class AutoMace extends Module {
 
         if (requireMace.isActive() && !holdingMace) return;
 
-        // Ensure we respect attack cooldown for maximum Mace damage
+        // Ensure we respect attack cool down for maximum Mace damage
         if (mc.player.getAttackStrengthScale(0.0f) >= 1.0f) {
             mc.gameMode.attack(mc.player, target);
             mc.player.swing(InteractionHand.MAIN_HAND);
@@ -76,10 +76,12 @@ public class AutoMace extends Module {
         Entity best = null;
         int bestPriority = -1;
 
+        assert mc.level != null;
         for (Entity entity : mc.level.entitiesForRendering()) {
             if (entity == mc.player) continue;
             if (!entity.isAlive()) continue;
 
+            assert mc.player != null;
             double dist = mc.player.distanceTo(entity);
             if (dist > attackRange.getVal()) continue;
 
@@ -114,12 +116,12 @@ public class AutoMace extends Module {
     private double getEstimatedDamage(float fallDistance) {
         double baseDamage = 5.0;
 
-        // Smash attack does not trigger if fall distance is 1.5 blocks or less
+        // Smash attack does not trigger if fall distance is 1.5 blocks or fewer
         if (fallDistance <= 1.5f) {
             return baseDamage;
         }
 
-        double bonus = 0;
+        double bonus;
         // First 3 blocks fallen: +3 damage per block
         if (fallDistance <= 3.0f) {
             bonus = fallDistance * 3.0;
@@ -130,7 +132,7 @@ public class AutoMace extends Module {
         }
         // Anything past 8 blocks: +1 damage per block
         else {
-            bonus = (3.0 * 3.0) + (5.0 * 1.5) + ((fallDistance - 8.0) * 1.0);
+            bonus = (3.0 * 3.0) + (5.0 * 1.5) + ((fallDistance - 8.0));
         }
 
         return baseDamage + bonus;
