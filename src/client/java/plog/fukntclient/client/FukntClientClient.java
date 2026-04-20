@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import plog.fukntclient.client.config.ConfigManager;
+import plog.charlie.CharlieBot;
 
 public class FukntClientClient implements ClientModInitializer {
 	public static final Minecraft mc = Minecraft.getInstance();
@@ -33,6 +34,7 @@ public class FukntClientClient implements ClientModInitializer {
 	public static TargetManager tm;
 	public static SeedManager seedManager;
 	public static MarkManager markManager;
+	public static CharlieBot Charlie;
 
 	public static final EventBus EVENT_BUS = new EventBus();
 
@@ -46,6 +48,7 @@ public class FukntClientClient implements ClientModInitializer {
 		cm = new CommandManager();
 		fm = new SocialManager();
 		tm = new TargetManager();
+		Charlie = new CharlieBot();
 		seedManager = new SeedManager();
 		markManager = new MarkManager();
 
@@ -62,6 +65,7 @@ public class FukntClientClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			mm.onTick();
 			sm.onTick();
+			Charlie.onTick();
 
 			// Check if the key was pressed
 			while (guiKeybind.consumeClick()) {
@@ -80,9 +84,10 @@ public class FukntClientClient implements ClientModInitializer {
 			}
 		});
 
-		WorldRenderEvents.BEFORE_TRANSLUCENT.register(context -> {
+		WorldRenderEvents.END_MAIN.register(context -> {
 			if (mc.player != null && mc.level != null) {
 				mm.onRender();
+				Charlie.onRender();
 			}
 		});
 	}

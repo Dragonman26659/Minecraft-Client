@@ -75,9 +75,19 @@ public class Hud extends Module {
             String value = line[1];
             int x = startX + PADDING;
 
-            RenderUtil.renderText(graphics, x, y, label, accentColor.getColorRGBA(), true);
+            if (accentColor.isRainbow()) {
+                renderRainbowText(graphics, x, y, label, true);
+            } else {
+                RenderUtil.renderText(graphics, x, y, label, accentColor.getColorRGBA(), true);
+            }
+
             int labelWidth = mc.font.width(label);
-            RenderUtil.renderText(graphics, x + labelWidth, y, value, textColor.getColorRGBA(), true);
+
+            if (textColor.isRainbow()) {
+                renderRainbowText(graphics, x + labelWidth, y, value, true);
+            } else {
+                RenderUtil.renderText(graphics, x + labelWidth, y, value, textColor.getColorRGBA(), true);
+            }
 
             y += LINE_HEIGHT;
         }
@@ -193,7 +203,11 @@ public class Hud extends Module {
                         bgColor.getColorRGBA());
             }
 
-            RenderUtil.renderText(graphics, x, y, name, accentColor.getColorRGBA(), true);
+            if (accentColor.isRainbow()) {
+                renderRainbowText(graphics, x, y, name, true);
+            } else {
+                RenderUtil.renderText(graphics, x, y, name, accentColor.getColorRGBA(), true);
+            }
             y += LINE_HEIGHT;
         }
     }
@@ -215,5 +229,23 @@ public class Hud extends Module {
         if (yaw < 135)              return "West (-X)";
         if (yaw < 225)              return "North (-Z)";
         return                             "East (+X)";
+    }
+
+    private void renderRainbowText(GuiGraphics graphics, int x, int y, String text, boolean shadow) {
+        Minecraft mc = FukntClientClient.mc;
+        float speed = 4000.0f;
+        float offsetPerChar = 0.05f; // hue shift between each character
+
+        int currentX = x;
+        for (int i = 0; i < text.length(); i++) {
+            float hue = ((System.currentTimeMillis() + (long)(i * offsetPerChar * 1000)) % (int)speed) / speed;
+            int rgb = java.awt.Color.HSBtoRGB(hue, 0.8f, 1.0f);
+            // Pack as ARGB with full alpha
+            int color = (0xFF << 24) | (rgb & 0xFFFFFF);
+
+            String ch = String.valueOf(text.charAt(i));
+            graphics.drawString(mc.font, ch, currentX, y, color, shadow);
+            currentX += mc.font.width(ch);
+        }
     }
 }

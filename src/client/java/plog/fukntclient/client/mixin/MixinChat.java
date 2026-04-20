@@ -28,14 +28,14 @@ public class MixinChat {
             return;
         }
 
-        // 2. Blocked player suppression
-        String rawText = message.getString().toLowerCase();
-        for (String blockedName : FukntClientClient.fm.getBlocked()) {
-            // Checks for standard vanilla chat "<PlayerName> msg" or system format "PlayerName msg"
-            if (rawText.contains("<" + blockedName + ">") || rawText.startsWith(blockedName + " ")) {
-                ci.cancel();
-                return;
-            }
-        }
+        //// 2. Blocked player suppression
+        //String rawText = message.getString().toLowerCase();
+        //for (String blockedName : FukntClientClient.fm.getBlocked()) {
+        //    // Checks for standard vanilla chat "<PlayerName> msg" or system format "PlayerName msg"
+        //    if (rawText.contains("<" + blockedName + ">") || rawText.startsWith(blockedName + " ")) {
+        //        ci.cancel();
+        //        return;
+        //    }
+        //}
     }
 }

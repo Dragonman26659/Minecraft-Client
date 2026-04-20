@@ -35,6 +35,7 @@ public class Surround extends Module {
     public final BooleanSetting targetMobs    = new BooleanSetting("Target Mobs",    false);
     public final BooleanSetting targetAnimals = new BooleanSetting("Target Animals", false);
     public final BooleanSetting targetFriends = new BooleanSetting("Target Friends", false);
+    public final BooleanSetting targetEnemies = new BooleanSetting("Target Enemies", true);
     public final BooleanSetting targetSelf    = new BooleanSetting("Target Self",    false);
 
     public final ModeSetting    pattern       = new ModeSetting("Pattern", "Cardinal", "Full", "Feet");
@@ -46,7 +47,7 @@ public class Surround extends Module {
 
     public Surround() {
         addSettings(
-                targetPlayers, targetMobs, targetAnimals, targetFriends, targetSelf,
+                targetPlayers, targetMobs, targetAnimals, targetFriends, targetEnemies, targetSelf,
                 pattern, autoEquip, rotate,
                 placeRange, targetRange
         );
@@ -179,10 +180,12 @@ public class Surround extends Module {
             if (!living.isAlive()) continue;
 
             boolean isFriend = FukntClientClient.fm.isFriend(living.getName().getString());
+            boolean isEnemy = FukntClientClient.fm.isEnemy(living.getName().getString());
 
             if (living instanceof Player) {
                 if (isFriend && !targetFriends.isActive()) continue;
-                if (!isFriend && !targetPlayers.isActive()) continue;
+                if (isEnemy && !targetEnemies.isActive()) continue;
+                if (!isEnemy && !isFriend && !targetPlayers.isActive()) continue;
             } else if (living instanceof Monster) {
                 if (!targetMobs.isActive()) continue;
             } else if (living instanceof Animal) {
