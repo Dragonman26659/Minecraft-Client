@@ -39,7 +39,7 @@ public class MineCommand extends Command {
         }
 
         Block block = BuiltInRegistries.BLOCK.get(rl).get().value();
-        FukntClientClient.Charlie.Mine(block);
+        FukntClientClient.Charlie.mine(block);
         sendMessage("§aMining §f" + rl.getPath().replace("_", " ") + "§a...");
     }
 }

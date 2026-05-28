@@ -44,7 +44,7 @@ public class GotoCommand extends Command {
                 return;
             }
 
-            FukntClientClient.Charlie.GoTo(scaled);
+            FukntClientClient.Charlie.goTo(scaled);
             String dimName = loc.getDimension().replace("minecraft:", "");
             sendMessage(String.format("§aNavigating to mark §f%s §7(§a%d, %d, %d §7[%s]§7)",
                     markName, loc.getX(), loc.getY(), loc.getZ(), dimName));
@@ -57,7 +57,7 @@ public class GotoCommand extends Command {
             int x = Integer.parseInt(args[0]);
             int y = Integer.parseInt(args[1]);
             int z = Integer.parseInt(args[2]);
-            FukntClientClient.Charlie.GoTo(new BlockPos(x, y, z));
+            FukntClientClient.Charlie.goTo(new BlockPos(x, y, z));
             sendMessage(String.format("§aNavigating to §f%d, %d, %d", x, y, z));
         } catch (NumberFormatException e) {
             throw new CommandException("Coordinates must be integers!");
