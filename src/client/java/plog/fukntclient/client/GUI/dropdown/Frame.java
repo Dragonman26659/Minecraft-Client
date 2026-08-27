@@ -14,6 +14,7 @@ import plog.fukntclient.client.Util.RenderUtil;
 public class Frame extends AbstractWidget {
     public int x, y;
     public int width, height;
+    public int radius = 6; // bigger + smoother corner math in RenderUtil makes this read as rounded, not clipped
 
     public ColorRGBA mainColor;
     public ColorRGBA hoverColor;
@@ -22,9 +23,11 @@ public class Frame extends AbstractWidget {
 
     public boolean enabled = false;
     public boolean hovered = false;
+    protected float hoverAnim = 0f;
 
     public String text;
     public int textAreaStart = 0;
+    protected static final float TEXT_SCALE = 0.8f;
 
     public Frame(int x, int y, int width, int height,
                  ColorRGBA mainColor, ColorRGBA hoverColor,
@@ -45,14 +48,26 @@ public class Frame extends AbstractWidget {
 
     public void render(GuiGraphics graphics, int mouseX, int mouseY) {
         hovered = isMouseOver(mouseX, mouseY);
+        hoverAnim += ((hovered ? 1f : 0f) - hoverAnim) * 0.35f;
 
-        ColorRGBA bg = enabled ? enabledColor : (hovered ? hoverColor : mainColor);
+        ColorRGBA bg = enabled ? enabledColor : mainColor;
+        RenderUtil.renderRoundedBox2D(graphics, x, y, width, height, radius, bg);
 
-        RenderUtil.renderBox2D(graphics, x, y, width, height, bg);
+        if (hoverAnim > 0.01f) {
+            int alpha = (int) (hoverAnim * 40);
+            RenderUtil.renderRoundedBox2D(graphics, x, y, width, height, radius,
+                    new ColorRGBA(RenderUtil.pack(255, 255, 255, alpha)));
+        }
 
-        int tStart = x + textAreaStart;
+        if (enabled) {
+            RenderUtil.renderRoundedBorder2D(graphics, x, y, width, height, radius,
+                    new ColorRGBA(RenderUtil.pack(120, 170, 255, 200)));
+        }
 
-        RenderUtil.renderText(graphics, tStart, y, text, textColor, true);
+        int tStart = x + textAreaStart + 5;
+        int tY = y + (height / 2) - 4;
+        RenderUtil.renderTextScaled(graphics, (int) (tStart / TEXT_SCALE), (int) (tY / TEXT_SCALE),
+                text, textColor, true, TEXT_SCALE);
     }
 
     @Override
@@ -89,18 +104,15 @@ public class Frame extends AbstractWidget {
     }
 
     public void onRelease(double mouseX, double mouseY, int button) {
-
     }
 
     public void onKey(int keyCode, char typedChar) {
-
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (isMouseOver((int) mouseX, (int) mouseY)) {
             enabled = !enabled;
         }
-
         return enabled;
     }
 

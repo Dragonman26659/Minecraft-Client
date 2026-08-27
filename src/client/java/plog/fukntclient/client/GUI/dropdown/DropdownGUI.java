@@ -2,10 +2,10 @@ package plog.fukntclient.client.GUI.dropdown;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 import plog.fukntclient.client.Modules.Category;
+import plog.fukntclient.client.Util.RenderUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +51,7 @@ public class DropdownGUI extends Screen {
 
     @Override
     public void render(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        graphics.fill(0, 0, this.width, this.height, RenderUtil.pack(10, 10, 14, 90));
         for (CategoryFrame cf : frames) {
             cf.render(graphics, mouseX, mouseY);
         }

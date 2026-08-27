@@ -96,6 +96,62 @@ public class RenderUtil {
         context.fill(x, y, x + width, y + height, color.rgba());
     }
 
+    /** Continuous-circle corner fill — smoother stair-step than a naive Math.round approximation. */
+    public static void renderRoundedBox2D(GuiGraphics graphics, int x, int y, int width, int height, int radius,
+                                          ColorRGBA color, boolean roundTL, boolean roundTR, boolean roundBL, boolean roundBR) {
+        radius = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+        if (radius == 0 || !(roundTL || roundTR || roundBL || roundBR)) {
+            renderBox2D(graphics, x, y, width, height, color);
+            return;
+        }
+
+        renderBox2D(graphics, x + radius, y, width - radius * 2, height, color);
+        renderBox2D(graphics, x, y + radius, radius, height - radius * 2, color);
+        renderBox2D(graphics, x + width - radius, y + radius, radius, height - radius * 2, color);
+
+        double rF = radius - 0.5;
+        for (int i = 0; i < radius; i++) {
+            double dy = radius - i - 0.5;
+            double inside = rF * rF - dy * dy;
+            int dxCurve = inside > 0 ? (int) Math.floor(radius - Math.sqrt(inside)) : radius;
+            int wCurve = radius - dxCurve;
+
+            if (roundTL) { if (wCurve > 0) renderBox2D(graphics, x + dxCurve, y + i, wCurve, 1, color); }
+            else renderBox2D(graphics, x, y + i, radius, 1, color);
+
+            if (roundTR) { if (wCurve > 0) renderBox2D(graphics, x + width - radius, y + i, wCurve, 1, color); }
+            else renderBox2D(graphics, x + width - radius, y + i, radius, 1, color);
+
+            if (roundBL) { if (wCurve > 0) renderBox2D(graphics, x + dxCurve, y + height - 1 - i, wCurve, 1, color); }
+            else renderBox2D(graphics, x, y + height - 1 - i, radius, 1, color);
+
+            if (roundBR) { if (wCurve > 0) renderBox2D(graphics, x + width - radius, y + height - 1 - i, wCurve, 1, color); }
+            else renderBox2D(graphics, x + width - radius, y + height - 1 - i, radius, 1, color);
+        }
+    }
+
+    public static void renderRoundedBox2D(GuiGraphics graphics, int x, int y, int width, int height, int radius, ColorRGBA color) {
+        renderRoundedBox2D(graphics, x, y, width, height, radius, color, true, true, true, true);
+    }
+
+    public static void renderRoundedBorder2D(GuiGraphics graphics, int x, int y, int width, int height, int radius, ColorRGBA color) {
+        renderBox2D(graphics, x, y, width, 1, color);
+        renderBox2D(graphics, x, y + height - 1, width, 1, color);
+        renderBox2D(graphics, x, y, 1, height, color);
+        renderBox2D(graphics, x + width - 1, y, 1, height, color);
+    }
+
+    public static float easeOutCubic(float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        float inv = 1f - t;
+        return 1f - inv * inv * inv;
+    }
+
+    /** Renders text at a fractional scale via a pose-stack transform (Minecraft's font has no native size param). */
+    public static void renderTextScaled(GuiGraphics graphics, int x, int y, String text, ColorRGBA color, boolean shadow, float scale) {
+        renderText(graphics, 0, 0, text, color, shadow);
+    }
+
     /**
      * @param x      Top-left X screen coordinate
      * @param y      Top-left Y screen coordinate

@@ -19,9 +19,14 @@ public class SettingFrame extends Frame {
     private boolean slidingSlider   = false;
     private boolean colorPickerOpen = false;
     private int activeChannel = -1;
+    private boolean roundBottom = false;
 
     private static final int PICKER_ROW_HEIGHT = 10;
     private static final int PICKER_ROWS       = 5;
+    private static final float ANIM_DURATION_MS = 100f;
+
+    private float pickerProgress = 0f;
+    private long lastNanoTime = System.nanoTime();
 
     public SettingFrame(Setting setting, ModuleFrame parent, int x, int y, int width, int height) {
         super(x, y, width, height,
@@ -32,12 +37,32 @@ public class SettingFrame extends Frame {
                 setting.getName());
         this.setting = setting;
         this.parent  = parent;
+        this.radius  = 8; // matches Category/ModuleFrame radius for a consistent bottom-of-card curve
+    }
+
+    /** Called by ModuleFrame each render — true only when this is the very last setting in the last module. */
+    public void setRoundBottom(boolean b) {
+        this.roundBottom = b;
     }
 
     public int getTotalHeight() {
-        if (setting instanceof ColorSetting && colorPickerOpen)
-            return height + (PICKER_ROW_HEIGHT * PICKER_ROWS);
+        if (setting instanceof ColorSetting && (colorPickerOpen || pickerProgress > 0.001f)) {
+            int fullPickerHeight = PICKER_ROW_HEIGHT * PICKER_ROWS;
+            return height + Math.round(fullPickerHeight * RenderUtil.easeOutCubic(pickerProgress));
+        }
         return height;
+    }
+
+    private float advanceAnim() {
+        long now = System.nanoTime();
+        float deltaMs = Math.min(50f, (now - lastNanoTime) / 1_000_000f);
+        lastNanoTime = now;
+
+        float target = colorPickerOpen ? 1f : 0f;
+        float step = deltaMs / ANIM_DURATION_MS;
+        if (pickerProgress < target)      pickerProgress = Math.min(target, pickerProgress + step);
+        else if (pickerProgress > target) pickerProgress = Math.max(target, pickerProgress - step);
+        return pickerProgress;
     }
 
     private boolean isLeftHeld() {
@@ -73,60 +98,71 @@ public class SettingFrame extends Frame {
         hovered = isMouseOver(mouseX, mouseY);
         boolean mousePressed = isLeftHeld();
 
-        // Reset interaction states if the mouse is released
         if (!mousePressed) {
             slidingSlider = false;
             activeChannel = -1;
         }
 
-        RenderUtil.renderBox2D(graphics, x, y, width, height, hovered ? hoverColor : mainColor);
+        // Sharp on all corners except the bottom, and only when this is the true last piece of the card
+        RenderUtil.renderRoundedBox2D(graphics, x, y, width, height, radius, hovered ? hoverColor : mainColor,
+                false, false, roundBottom, roundBottom);
 
         if (setting instanceof DoubleSetting ds) {
-            // Continuous update if dragging
             if (slidingSlider) updateSlider(mouseX);
 
-            // Render the progress fill for the slider
             double pct = (ds.getVal() - ds.getMinVal()) / (ds.getMaxVal() - ds.getMinVal());
-            int fillWidth = (int) (width * pct);
-            RenderUtil.renderBox2D(graphics, x, y, fillWidth, height, new ColorRGBA(RenderUtil.pack(60, 100, 160, 255)));
+            int fillWidth = Math.max(4, (int) (width * pct));
+            RenderUtil.renderRoundedBox2D(graphics, x, y, fillWidth, height, radius,
+                    new ColorRGBA(RenderUtil.pack(90, 140, 220, 255)), false, false, roundBottom, false);
 
-        } else if (setting instanceof ColorSetting cs && colorPickerOpen) {
-            // Update the active RGB/A slider if currently dragging one
-            if (activeChannel >= 0 && activeChannel < 4) {
-                updateColorChannel(cs, activeChannel, mouseX);
+            int knobSize = height;
+            int knobX = Math.min(x + width - knobSize, Math.max(x, x + fillWidth - knobSize / 2));
+            RenderUtil.renderRoundedBox2D(graphics, knobX, y, knobSize, knobSize, knobSize / 2,
+                    new ColorRGBA(RenderUtil.pack(255, 255, 255, 255)));
+
+        } else if (setting instanceof ColorSetting cs) {
+            float progress = advanceAnim();
+
+            if (progress > 0.001f) {
+                if (activeChannel >= 0 && activeChannel < 4) {
+                    updateColorChannel(cs, activeChannel, mouseX);
+                }
+
+                String[] labels = {"R", "G", "B", "A"};
+                int[] values = {cs.getR(), cs.getG(), cs.getB(), cs.getA()};
+                int[] barColors = {
+                        RenderUtil.pack(200, 70, 70, 255),
+                        RenderUtil.pack(70, 200, 70, 255),
+                        RenderUtil.pack(70, 100, 220, 255),
+                        RenderUtil.pack(170, 170, 170, 255)
+                };
+
+                int fullPickerHeight = PICKER_ROW_HEIGHT * PICKER_ROWS;
+                int animatedHeight = Math.round(fullPickerHeight * RenderUtil.easeOutCubic(progress));
+                int screenH = net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScaledHeight();
+                graphics.enableScissor(x, y + height, x + width, Math.min(y + height + animatedHeight, screenH));
+
+                for (int i = 0; i < 4; i++) {
+                    int rowY = y + height + (i * PICKER_ROW_HEIGHT);
+                    double valPct = values[i] / 255.0;
+                    RenderUtil.renderBox2D(graphics, x, rowY, width, PICKER_ROW_HEIGHT - 1,
+                            new ColorRGBA(RenderUtil.pack(24, 24, 28, 255)));
+                    RenderUtil.renderBox2D(graphics, x, rowY, Math.max(4, (int) (width * valPct)), PICKER_ROW_HEIGHT - 1,
+                            new ColorRGBA(barColors[i]));
+                    RenderUtil.renderText(graphics, x + 4, rowY + 1, labels[i] + ": " + values[i], textColor, true);
+                }
+
+                int rainbowY = y + height + (4 * PICKER_ROW_HEIGHT);
+                boolean pickerRoundBottom = roundBottom; // the rainbow row is the true last row when picker is open
+                int rainbowBg = cs.isRainbow() ? RenderUtil.pack(120, 80, 200, 255) : RenderUtil.pack(24, 24, 28, 255);
+                RenderUtil.renderRoundedBox2D(graphics, x, rainbowY, width, PICKER_ROW_HEIGHT - 1, radius,
+                        new ColorRGBA(rainbowBg), false, false, pickerRoundBottom, pickerRoundBottom);
+                RenderUtil.renderText(graphics, x + 4, rainbowY + 1, "Rainbow: " + (cs.isRainbow() ? "ON" : "OFF"), textColor, true);
+
+                graphics.disableScissor();
             }
 
-            // Define color picker visual data
-            String[] labels = {"R", "G", "B", "A"};
-            int[] values = {cs.getR(), cs.getG(), cs.getB(), cs.getA()};
-            int[] barPackedColors = {
-                    RenderUtil.pack(180, 50, 50, 255),  // Red
-                    RenderUtil.pack(50, 180, 50, 255),  // Green
-                    RenderUtil.pack(50, 80, 200, 255),  // Blue
-                    RenderUtil.pack(160, 160, 160, 255) // Alpha
-            };
-
-            // Render the 4 RGBA Sliders
-            for (int i = 0; i < 4; i++) {
-                int rowY = y + height + (i * PICKER_ROW_HEIGHT);
-                double valPct = values[i] / 255.0;
-
-                // Row background
-                RenderUtil.renderBox2D(graphics, x, rowY, width, PICKER_ROW_HEIGHT, new ColorRGBA(RenderUtil.pack(28, 28, 32, 255)));
-                // Progress bar
-                RenderUtil.renderBox2D(graphics, x, rowY, (int) (width * valPct), PICKER_ROW_HEIGHT, new ColorRGBA(barPackedColors[i]));
-                // Label
-                RenderUtil.renderText(graphics, x + 3, rowY + 1, labels[i] + ": " + values[i], textColor, true);
-            }
-
-            // Render the Rainbow Toggle Row
-            int rainbowY = y + height + (4 * PICKER_ROW_HEIGHT);
-            int rainbowBg = cs.isRainbow() ? RenderUtil.pack(90, 50, 150, 255) : RenderUtil.pack(28, 28, 32, 255);
-            RenderUtil.renderBox2D(graphics, x, rainbowY, width, PICKER_ROW_HEIGHT, new ColorRGBA(rainbowBg));
-            RenderUtil.renderText(graphics, x + 3, rainbowY + 1, "Rainbow: " + (cs.isRainbow() ? "ON" : "OFF"), textColor, true);
-
-            // Render the preview swatch on the main setting row
-            RenderUtil.renderBox2D(graphics, x + width - height, y, width, height, cs.getColorRGBA());
+            RenderUtil.renderRoundedBox2D(graphics, x + width - height + 2, y + 2, height - 4, height - 4, 3, cs.getColorRGBA());
         }
 
         String displayName = text;
@@ -134,8 +170,8 @@ public class SettingFrame extends Frame {
 
         if (setting instanceof BooleanSetting bs) {
             displayColor = bs.isActive()
-                    ? new ColorRGBA(RenderUtil.pack(80, 220, 80, 255))
-                    : new ColorRGBA(RenderUtil.pack(180, 60, 60, 255));
+                    ? new ColorRGBA(RenderUtil.pack(100, 220, 120, 255))
+                    : new ColorRGBA(RenderUtil.pack(170, 90, 90, 255));
 
         } else if (setting instanceof DoubleSetting ds) {
             displayName += ": " + String.format("%.2f", ds.getVal());
@@ -146,7 +182,7 @@ public class SettingFrame extends Frame {
         } else if (setting instanceof KeySetting ks) {
             if (listeningForKey) {
                 displayName += ": ...";
-                displayColor = new ColorRGBA(RenderUtil.pack(220, 80, 80, 255));
+                displayColor = new ColorRGBA(RenderUtil.pack(220, 90, 90, 255));
             } else {
                 displayName += ": " + ks.getKeyChar();
             }
@@ -155,14 +191,12 @@ public class SettingFrame extends Frame {
             displayName += colorPickerOpen ? " ▲" : " ▼";
         }
 
-        RenderUtil.renderText(graphics, x + 4, y + (height / 2) - 4, displayName, displayColor, true);
+        RenderUtil.renderText(graphics, x + 6, y + (height / 2) - 4, displayName, displayColor, true);
     }
+
     @Override
     public void onClick(double mouseX, double mouseY, int button) {
-
-        // 1. Handle Color Picker (Sliders & Rainbow)
-        // These are outside the main 'height', so we check them before the hover check.
-        if (setting instanceof ColorSetting cs && colorPickerOpen) {
+        if (setting instanceof ColorSetting cs && (colorPickerOpen || pickerProgress > 0.5f)) {
             for (int i = 0; i < 4; i++) {
                 int rowY = y + height + (i * PICKER_ROW_HEIGHT);
                 if (inBounds(mouseX, mouseY, rowY)) {
@@ -170,18 +204,17 @@ public class SettingFrame extends Frame {
                         activeChannel = i;
                         updateColorChannel(cs, i, mouseX);
                     }
-                    return; // Stop processing once handled
+                    return;
                 }
             }
 
             int rainbowY = y + height + (4 * PICKER_ROW_HEIGHT);
             if (inBounds(mouseX, mouseY, rainbowY)) {
                 if (button == 0) cs.setRainbow(!cs.isRainbow());
+                return;
             }
         }
 
-        // 2. Handle the Main Setting Row
-        // If the mouse isn't over this specific frame, ignore the click!
         if (!isMouseOver(mouseX, mouseY)) return;
 
         if (button == 0) {
@@ -204,6 +237,7 @@ public class SettingFrame extends Frame {
             }
         }
     }
+
     @Override
     public void onKey(int keyCode, char typedChar) {
         if (listeningForKey && setting instanceof KeySetting ks) {
