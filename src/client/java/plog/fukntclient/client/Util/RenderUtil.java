@@ -7,6 +7,8 @@ import net.minecraft.util.ColorRGBA;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import plog.fukntclient.client.Util.Rendering.CustomRenderPipeline;
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 public class RenderUtil {
     private static final Minecraft mc = Minecraft.getInstance();
@@ -168,6 +170,63 @@ public class RenderUtil {
      */
     public static int pack(int r, int g, int b, int a) {
         return ((a & 0xFF) << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+    }
+
+    /**
+     * Projects a world-space position to screen-space pixel coordinates.
+     * Returns null if the point is behind the camera.
+     */
+    public static Vec3 worldToScreen(Vec3 worldPos) {
+        if (mc.gameRenderer == null) return null;
+
+        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+        Matrix4f projection = CustomRenderPipeline.getLastProjectionMatrix();
+        Matrix4f modelView  = CustomRenderPipeline.getLastModelViewMatrix();
+
+        Vector4f clip = new Vector4f(
+                (float) (worldPos.x - camPos.x),
+                (float) (worldPos.y - camPos.y),
+                (float) (worldPos.z - camPos.z),
+                1.0f
+        );
+
+        clip.mul(modelView);
+        clip.mul(projection);
+
+        if (clip.w() <= 0.0f) return null; // behind the camera
+
+        float ndcX = clip.x() / clip.w();
+        float ndcY = clip.y() / clip.w();
+
+        int screenWidth  = mc.getWindow().getGuiScaledWidth();
+        int screenHeight = mc.getWindow().getGuiScaledHeight();
+
+        float screenX = (ndcX * 0.5f + 0.5f) * screenWidth;
+        float screenY = (1.0f - (ndcY * 0.5f + 0.5f)) * screenHeight;
+
+        return new Vec3(screenX, screenY, clip.w());
+    }
+
+    /**
+     * Draws a thin line between two screen-space points using stepped 1px fills.
+     */
+    public static void renderLine2D(GuiGraphics context, float x0, float y0, float x1, float y1,
+                                    float thickness, ColorRGBA color) {
+        float dx = x1 - x0;
+        float dy = y1 - y0;
+        float length = (float) Math.sqrt(dx * dx + dy * dy);
+        if (length < 1f) return;
+
+        int steps = Math.round(length);
+        float stepX = dx / steps;
+        float stepY = dy / steps;
+        int half = Math.max(1, Math.round(thickness / 2f));
+
+        for (int i = 0; i <= steps; i++) {
+            int px = Math.round(x0 + stepX * i);
+            int py = Math.round(y0 + stepY * i);
+            context.fill(px - half, py - half, px + half, py + half, color.rgba());
+        }
     }
 
     // ── Color helpers ─────────────────────────────────────────────────────────

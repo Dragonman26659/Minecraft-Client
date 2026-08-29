@@ -13,6 +13,7 @@ import plog.fukntclient.client.Managers.SeedManager;
 import plog.fukntclient.client.Managers.TargetManager;
 import plog.fukntclient.client.Modules.ModuleManager;
 import plog.fukntclient.client.Modules.impl.Visual.Hud;
+import plog.fukntclient.client.Modules.impl.Visual.Tracers;
 import plog.fukntclient.client.commands.CommandManager;
 import plog.fukntclient.client.events.EventBus;
 import plog.fukntclient.client.Managers.SocialManager;
@@ -82,7 +83,13 @@ public class FukntClientClient implements ClientModInitializer {
 			if (hud != null && hud.isToggled()) {
 				hud.renderHud(graphics);
 			}
+
+			Tracers tracers = (Tracers) mm.getModule(Tracers.class);
+			if (tracers != null && tracers.isToggled()) {
+				tracers.onRenderHud(graphics, tickCounter);
+			}
 		});
+
 
 		WorldRenderEvents.END_MAIN.register(context -> {
 			if (mc.player != null && mc.level != null) {

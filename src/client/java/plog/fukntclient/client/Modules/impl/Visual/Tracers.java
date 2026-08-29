@@ -1,10 +1,13 @@
 package plog.fukntclient.client.Modules.impl.Visual;
 
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.ColorRGBA;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Modules.Category;
 import plog.fukntclient.client.Modules.Module;
@@ -25,15 +28,20 @@ public class Tracers extends Module {
     public final BooleanSetting traceAnimals = new BooleanSetting("Animals", false);
 
     public Tracers() {
-        // Ensure all settings are added to the menu
         addSettings(playerColor, friendColor, animalColor, mobColor, traceMobs, traceAnimals);
     }
 
-    @Override
-    public void onRender() {
+    // Called from your HUD render hook instead of the world-render one.
+    public void onRenderHud(GuiGraphics graphics, DeltaTracker deltaTracker) {
         if (FukntClientClient.mc.level == null || FukntClientClient.mc.player == null) return;
 
-        // Iterate through all entities in the world
+        int screenWidth = FukntClientClient.mc.getWindow().getGuiScaledWidth();
+        int screenHeight = FukntClientClient.mc.getWindow().getGuiScaledHeight();
+        float centerX = screenWidth / 2f;
+        float centerY = screenHeight / 2f;
+
+        float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
+
         for (Entity entity : FukntClientClient.mc.level.entitiesForRendering()) {
             if (entity == FukntClientClient.mc.player) continue;
 
@@ -44,21 +52,22 @@ public class Tracers extends Module {
                 boolean isFriend = FukntClientClient.fm.isFriend(player.getGameProfile().name());
                 color = isFriend ? friendColor.getColorRGBA() : playerColor.getColorRGBA();
                 shouldRender = true;
-            }
-            else if (traceMobs.isActive() && entity instanceof Monster) {
+            } else if (traceMobs.isActive() && entity instanceof Monster) {
                 color = mobColor.getColorRGBA();
                 shouldRender = true;
-            }
-            else if (traceAnimals.isActive() && entity instanceof Animal) {
+            } else if (traceAnimals.isActive() && entity instanceof Animal) {
                 color = animalColor.getColorRGBA();
                 shouldRender = true;
             }
 
-            // If color was assigned (meaning the entity passed our filters), render the line
-            if (shouldRender && color != null) {
-                // Using entity.getEyePosition() often looks better for tracers than .position()
-                RenderUtil.renderTracer(entity.position(), color);
-            }
+            if (!shouldRender || color == null) continue;
+
+            Vec3 worldPos = entity.getEyePosition(partialTick);
+            Vec3 screenPos = RenderUtil.worldToScreen(worldPos);
+            if (screenPos == null) continue; // behind camera
+
+            RenderUtil.renderLine2D(graphics, centerX, centerY,
+                    (float) screenPos.x, (float) screenPos.y, 1.5f, color);
         }
     }
 }

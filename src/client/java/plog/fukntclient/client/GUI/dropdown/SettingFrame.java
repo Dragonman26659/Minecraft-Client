@@ -115,11 +115,6 @@ public class SettingFrame extends Frame {
             RenderUtil.renderRoundedBox2D(graphics, x, y, fillWidth, height, radius,
                     new ColorRGBA(RenderUtil.pack(90, 140, 220, 255)), false, false, roundBottom, false);
 
-            int knobSize = height;
-            int knobX = Math.min(x + width - knobSize, Math.max(x, x + fillWidth - knobSize / 2));
-            RenderUtil.renderRoundedBox2D(graphics, knobX, y, knobSize, knobSize, knobSize / 2,
-                    new ColorRGBA(RenderUtil.pack(255, 255, 255, 255)));
-
         } else if (setting instanceof ColorSetting cs) {
             float progress = advanceAnim();
 
@@ -162,7 +157,7 @@ public class SettingFrame extends Frame {
                 graphics.disableScissor();
             }
 
-            RenderUtil.renderRoundedBox2D(graphics, x + width - height + 2, y + 2, height - 4, height - 4, 3, cs.getColorRGBA());
+            RenderUtil.renderBox2D(graphics, x + width - height + 2, y + 2, height - 4, height - 4, cs.getColorRGBA());
         }
 
         String displayName = text;

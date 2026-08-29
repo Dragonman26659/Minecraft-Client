@@ -66,6 +66,13 @@ public class CustomRenderPipeline implements ClientModInitializer {
     private static final ByteBufferBuilder allocatorFilled = new ByteBufferBuilder(RenderType.SMALL_BUFFER_SIZE);
     private static final ByteBufferBuilder allocatorLines  = new ByteBufferBuilder(RenderType.SMALL_BUFFER_SIZE);
 
+
+    // ── Cached camera matrices (for screen-space projection during HUD render) ──
+    @Getter
+    private static Matrix4f lastProjectionMatrix = new Matrix4f();
+    @Getter
+    private static Matrix4f lastModelViewMatrix = new Matrix4f();
+
     // ── GPU uniforms ──────────────────────────────────────────────────────────
 
     private static final Vector4f COLOR_MODULATOR = new Vector4f(1f, 1f, 1f, 1f);
@@ -152,12 +159,29 @@ public class CustomRenderPipeline implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         instance = this;
-        WorldRenderEvents.BEFORE_TRANSLUCENT.register(this::onRender);
+        WorldRenderEvents.END_MAIN.register(this::onRender);
     }
 
     // ── Render event ─────────────────────────────────────────────────────────
 
     private void onRender(WorldRenderContext context) {
+        int screenWidth  = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+        int screenHeight = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+        float aspect = (float) screenWidth / (float) screenHeight;
+
+        // Vanilla's own FOV setting, in degrees -> radians
+        double fovDegrees = Minecraft.getInstance().options.fov().get();
+        float fovRadians = (float) Math.toRadians(fovDegrees);
+
+        // Near/far don't need to match vanilla exactly — we only ever read x/y/w from this,
+        // never depth — so these just need to be sane bounds.
+        float nearPlane = 0.05f;
+        float farPlane  = 1024f;
+
+        lastProjectionMatrix = new Matrix4f().perspective(fovRadians, aspect, nearPlane, farPlane);
+        lastModelViewMatrix  = new Matrix4f(context.matrices().last().pose());
+
+
         if (filledQueue.isEmpty() && baseQueue.isEmpty() && cornerQueue.isEmpty()
                 && wireQueue.isEmpty() && tracerQueue.isEmpty()
                 && tracerRibbonQueue.isEmpty()) return;
