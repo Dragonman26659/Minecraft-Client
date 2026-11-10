@@ -7,7 +7,8 @@
     "MixinClientConnection",
     "MixinGameRenderer",
     "MixinPlayerTabOverlay",
-    "MixinChat"
+    "MixinChat",
+    "MixinCommandSuggestions"
   ],
   "injectors": {
     "defaultRequire": 1

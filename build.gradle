@@ -27,36 +27,43 @@ loom {
 
 }
 
+// Loom inspects file dependencies while the project is being configured. A task-based
+// download runs too late and produces "Failed to compute checksum" for a missing file.
+// Resolve the official release before declaring the file dependency so this works on
+// clean Windows/macOS/Linux checkouts without a machine-specific absolute path.
 def baritoneVersion = project.findProperty("baritone_version") ?: "1.16.0"
 def baritoneFileName = "baritone-api-fabric-${baritoneVersion}.jar"
 def baritoneJar = layout.projectDirectory.file("libs/${baritoneFileName}").asFile
-def baritoneDownloadUrl = "https://github.com/cabaletta/baritone/releases/download/v${baritoneVersion}/${baritoneFileName}"
 
-tasks.register("downloadBaritone") {
-	group = "build setup"
-	description = "Downloads the matching official Baritone Fabric API jar."
-	outputs.file(baritoneJar)
-	doLast {
-		if (!baritoneJar.exists()) {
-			baritoneJar.parentFile.mkdirs()
-			logger.lifecycle("Downloading Baritone ${baritoneVersion} for Fabric...")
-			new URL(baritoneDownloadUrl).with { url ->
-				URLConnection connection = url.openConnection()
-				connection.connectTimeout = 15000
-				connection.readTimeout = 60000
-				connection.getInputStream().withCloseable { input ->
-					baritoneJar.withOutputStream { output -> output << input }
-				}
-			}
-		}
-	}
+def ensureBaritoneDownloaded = {
+    if (!baritoneJar.isFile() || baritoneJar.length() < 100000L) {
+        baritoneJar.parentFile.mkdirs()
+        def url = new URL("https://github.com/cabaletta/baritone/releases/download/v${baritoneVersion}/${baritoneFileName}")
+        logger.lifecycle("Downloading official Baritone Fabric ${baritoneVersion} dependency...")
+        def connection = url.openConnection()
+        connection.connectTimeout = 20000
+        connection.readTimeout = 90000
+        connection.setRequestProperty("User-Agent", "FukntClient-Gradle")
+        File temporary = new File(baritoneJar.parentFile, baritoneFileName + ".part")
+        try {
+            connection.getInputStream().withCloseable { input ->
+                temporary.withOutputStream { output -> input.transferTo(output) }
+            }
+            if (temporary.length() < 100000L) {
+                throw new GradleException("Downloaded Baritone file is unexpectedly small (${temporary.length()} bytes). Check the release URL/version.")
+            }
+            if (baritoneJar.exists()) baritoneJar.delete()
+            if (!temporary.renameTo(baritoneJar)) {
+                throw new GradleException("Could not move downloaded Baritone jar into ${baritoneJar}")
+            }
+        } catch (Exception ex) {
+            temporary.delete()
+            throw new GradleException("Could not download Baritone ${baritoneVersion}. Check your internet connection and the official release URL.", ex)
+        }
+    }
 }
 
-tasks.configureEach {
-	if (name in ["compileJava", "compileClientJava", "jar", "remapJar"]) {
-		dependsOn(tasks.named("downloadBaritone"))
-	}
-}
+ensureBaritoneDownloaded()
 
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -64,8 +71,8 @@ dependencies {
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	compileOnly 'org.projectlombok:lombok:1.18.42'
-	annotationProcessor 'org.projectlombok:lombok:1.18.42'
+	compileOnly 'org.projectlombok:lombok:1.18.46'
+	annotationProcessor 'org.projectlombok:lombok:1.18.46'
 
 	implementation 'org.reflections:reflections:0.10.2'
 	include 'org.reflections:reflections:0.10.2'
@@ -74,6 +81,12 @@ dependencies {
 	// Its Fabric metadata is retained, so Fabric Loader discovers and initialises it.
 	modImplementation files(baritoneJar)
 	include files(baritoneJar)
+
+	// Baritone's nested nether-pathfinder jar is NOT loaded in the dev environment
+	// (Loom ignores jars nested inside a file dependency), which caused
+	// NoClassDefFoundError: dev/babbaj/pathfinder/NetherPathfinder on startup.
+	modImplementation files('libs/nether-pathfinder-1.6.jar')
+	include files('libs/nether-pathfinder-1.6.jar')
 
 	implementation 'org.javassist:javassist:3.29.2-GA'
 	include 'org.javassist:javassist:3.29.2-GA'
@@ -88,17 +101,28 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
+	// Bytecode target stays at 21 (what Minecraft 1.21.10 ships with) even though
+	// the JDK doing the compiling/running is 26. Keeps Mixin/ASM happy.
 	it.options.release = 21
 }
 
 java {
-	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-	// if it is present.
-	// If you remove this line, sources will not be generated.
+	// Build and run with JDK 26.
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(26)
+	}
+
 	withSourcesJar()
 
 	sourceCompatibility = JavaVersion.VERSION_21
 	targetCompatibility = JavaVersion.VERSION_21
+}
+
+// Loom's runClient task is a JavaExec task. Explicitly select the Java 26 launcher.
+tasks.withType(JavaExec).configureEach {
+	javaLauncher = javaToolchains.launcherFor {
+		languageVersion = JavaLanguageVersion.of(26)
+	}
 }
 
 jar {

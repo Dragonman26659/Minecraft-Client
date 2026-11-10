@@ -1,5 +1,7 @@
 package plog.fukntclient.client.commands.impl;
 
+import java.util.List;
+import java.util.ArrayList;
 import net.minecraft.core.BlockPos;
 import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Managers.LocationData;
@@ -62,5 +64,20 @@ public class GotoCommand extends Command {
         } catch (NumberFormatException e) {
             throw new CommandException("Coordinates must be integers!");
         }
+    }
+
+    @Override
+    public List<String> suggest(String[] args) {
+        if (args.length == 1) {
+            List<String> out = new ArrayList<>(List.of("mark", "stop"));
+            out.addAll(playerCoord(0));
+            return out;
+        }
+        if (args[0].equalsIgnoreCase("mark")) {
+            return args.length == 2 ? new ArrayList<>(FukntClientClient.markManager.getCurrentMarks().keySet()) : List.of();
+        }
+        if (args[0].equalsIgnoreCase("stop")) return List.of();
+        if (args.length <= 3) return playerCoord(args.length - 1);
+        return List.of();
     }
 }

@@ -38,15 +38,31 @@ public final class BaritoneBridge {
     }
 
     private static void configureRendering(Class<?> api) {
+        Object settings;
         try {
-            Object settings = api.getMethod("getSettings").invoke(null);
-            setSetting(settings, "renderPath", true);
-            setSetting(settings, "renderPathAsLine", true);
-            setSetting(settings, "renderGoal", true);
-            setSetting(settings, "renderSelectionBoxes", true);
-            setSetting(settings, "chatControl", true);
+            settings = api.getMethod("getSettings").invoke(null);
         } catch (ReflectiveOperationException e) {
-            System.err.println("[Charlie] Could not configure all Baritone render settings: " + e.getMessage());
+            System.err.println("[Charlie] Could not read Baritone settings: " + e.getMessage());
+            return;
+        }
+        setSettingSafely(settings, "renderPath", true);
+        setSettingSafely(settings, "renderPathAsLine", true);
+        setSettingSafely(settings, "renderGoal", true);
+        setSettingSafely(settings, "renderSelectionBoxes", true);
+
+        // FukntClient owns every chat command. Turn off Baritone's chat listener
+        // (the "#" prefix and the prefix-less chatControl) so it neither executes
+        // commands nor offers its own command suggestions.
+        setSettingSafely(settings, "prefixControl", false);
+        setSettingSafely(settings, "chatControl", false);
+        setSettingSafely(settings, "chatControlAnyway", false);
+    }
+
+    private static void setSettingSafely(Object settings, String name, boolean value) {
+        try {
+            setSetting(settings, name, value);
+        } catch (ReflectiveOperationException e) {
+            System.err.println("[Charlie] Could not set Baritone setting '" + name + "': " + e);
         }
     }
 

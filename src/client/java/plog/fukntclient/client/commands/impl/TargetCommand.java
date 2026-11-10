@@ -1,5 +1,7 @@
 package plog.fukntclient.client.commands.impl;
 
+import java.util.List;
+import java.util.ArrayList;
 import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Managers.LocationData;
 import plog.fukntclient.client.commands.Command;
@@ -34,5 +36,17 @@ public class TargetCommand extends Command {
         } catch (NumberFormatException e) {
             throw new CommandException("Coordinates must be integers!");
         }
+    }
+
+    @Override
+    public List<String> suggest(String[] args) {
+        if (args.length == 1) {
+            List<String> out = new ArrayList<>(List.of("clear"));
+            out.addAll(playerCoord(0));
+            return out;
+        }
+        if (args[0].equalsIgnoreCase("clear")) return List.of();
+        if (args.length <= 3) return playerCoord(args.length - 1);
+        return List.of();
     }
 }

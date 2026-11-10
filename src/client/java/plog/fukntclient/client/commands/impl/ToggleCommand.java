@@ -1,5 +1,6 @@
 package plog.fukntclient.client.commands.impl;
 
+import java.util.List;
 import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Modules.Module;
 import plog.fukntclient.client.commands.Command;
@@ -18,5 +19,11 @@ public class ToggleCommand extends Command {
 
         mod.toggle();
         sendMessage(mod.getName() + " " + (mod.isToggled() ? "§aenabled" : "§cdisabled"));
+    }
+
+    @Override
+    public List<String> suggest(String[] args) {
+        if (args.length != 1) return List.of();
+        return FukntClientClient.mm.getModules().values().stream().map(Module::getName).sorted().toList();
     }
 }

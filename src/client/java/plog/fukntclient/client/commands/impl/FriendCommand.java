@@ -1,5 +1,7 @@
 package plog.fukntclient.client.commands.impl;
 
+import java.util.List;
+import java.util.ArrayList;
 import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.commands.Command;
 import plog.fukntclient.client.commands.CommandInfo;
@@ -32,5 +34,19 @@ public class FriendCommand extends Command {
             }
             default -> throw new CommandException("Usage: " + getUsage());
         }
+    }
+
+    @Override
+    public List<String> suggest(String[] args) {
+        if (args.length == 1) return List.of("add", "remove", "list");
+        if (args.length == 2 && args[0].equalsIgnoreCase("add")) {
+            return onlinePlayers().stream()
+                    .filter(n -> !FukntClientClient.fm.getFriends().contains(n.toLowerCase()))
+                    .toList();
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+            return new ArrayList<>(FukntClientClient.fm.getFriends());
+        }
+        return List.of();
     }
 }

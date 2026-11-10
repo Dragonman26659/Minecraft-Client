@@ -1,5 +1,7 @@
 package plog.fukntclient.client.commands.impl;
 
+import java.util.List;
+import java.util.ArrayList;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -11,7 +13,7 @@ import plog.fukntclient.client.exeption.CommandException;
 
 import java.util.Optional;
 
-@CommandInfo(name = "charliemine", usage = "#charliemine <block>  |  #charliemine stop", description = "Mine the nearest block of a given type using Charlie", aliases = {"dig"})
+@CommandInfo(name = "charliemine", usage = "#charliemine <block>  |  #charliemine stop", description = "Mine the nearest block of a given type using Charlie", aliases = {"dig", "mine"})
 public class MineCommand extends Command {
 
     @Override
@@ -41,5 +43,17 @@ public class MineCommand extends Command {
         Block block = BuiltInRegistries.BLOCK.get(rl).get().value();
         FukntClientClient.Charlie.mine(block);
         sendMessage("§aMining §f" + rl.getPath().replace("_", " ") + "§a...");
+    }
+
+    @Override
+    public List<String> suggest(String[] args) {
+        if (args.length != 1) return List.of();
+        List<String> out = new ArrayList<>();
+        out.add("stop");
+        BuiltInRegistries.BLOCK.keySet().forEach(id -> {
+            // "minecraft:" is optional in the command, so keep vanilla blocks short.
+            out.add(id.getNamespace().equals("minecraft") ? id.getPath() : id.toString());
+        });
+        return out;
     }
 }

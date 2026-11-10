@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayDeque;
@@ -20,6 +21,9 @@ import java.util.List;
 public class CharlieBot {
     private final Minecraft mc = Minecraft.getInstance();
     private final Deque<Goal> goalStack = new ArrayDeque<>();
+    private final CharlieGoapPlanner goapPlanner = new CharlieGoapPlanner();
+    private final CharlieCombatController combat = new CharlieCombatController();
+    private CharlieGoapPlanner.Plan lastPlan;
 
     public CharlieBot() {
         BaritoneBridge.initialize();
@@ -47,10 +51,40 @@ public class CharlieBot {
 
     public void stop() {
         clearGoals();
+        combat.stop();
         BaritoneBridge.stop();
     }
 
+    public CharlieGoapPlanner.Plan plan(String goal) {
+        lastPlan = goapPlanner.plan(goal);
+        return lastPlan;
+    }
+
+    public CharlieGoapPlanner.Plan getLastPlan() { return lastPlan; }
+    public void startCombat(String playerName) { clearGoals(); BaritoneBridge.stop(); combat.start(playerName); }
+    public boolean isCombatActive() { return combat.isEnabled(); }
+
+    /** Find loaded chest blocks around the player; does not force-load chunks. */
+    public List<BlockPos> findNearbyChests(int radius) {
+        List<BlockPos> found = new ArrayList<>();
+        if (mc.player == null || mc.level == null) return found;
+        BlockPos origin = mc.player.blockPosition();
+        int r = Math.max(1, Math.min(radius, 32));
+        for (int x = -r; x <= r; x++) {
+            for (int y = -8; y <= 8; y++) {
+                for (int z = -r; z <= r; z++) {
+                    BlockPos pos = origin.offset(x, y, z);
+                    var state = mc.level.getBlockState(pos);
+                    if (state.is(Blocks.CHEST) || state.is(Blocks.TRAPPED_CHEST)) found.add(pos.immutable());
+                }
+            }
+        }
+        found.sort(java.util.Comparator.comparingDouble(pos -> mc.player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)));
+        return found;
+    }
+
     public void onTick() {
+        combat.tick();
         if (mc.player == null || mc.level == null || goalStack.isEmpty()) return;
         Goal current = goalStack.peek();
         GoalStatus status = current.tick();
@@ -70,11 +104,15 @@ public class CharlieBot {
 
     public List<String> getPlanLines() {
         List<String> lines = new ArrayList<>();
+        if (combat.isEnabled()) lines.add("Combat: fast tactical loop");
+        if (lastPlan != null) lines.addAll(lastPlan.lines());
         for (Goal goal : goalStack) lines.add(goal.toString());
         return lines;
     }
 
     public String getCurrentPlan() {
+        if (combat.isEnabled()) return "Combat: active";
+        if (lastPlan != null) return "GOAP: " + lastPlan.goal();
         return goalStack.isEmpty() ? "Idle" : goalStack.peek().toString();
     }
 
