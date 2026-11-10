@@ -30,7 +30,7 @@ public class TargetManager {
 
         // Target is Overworld, Player is Nether
         if (targetDim.equals("minecraft:overworld") && currentDimension.equals("minecraft:the_nether")) {
-            return new BlockPos(x / 8, y, z / 8);
+            return new BlockPos(Math.floorDiv(x, 8), y, Math.floorDiv(z, 8));
         }
 
         // Target is Nether, Player is Overworld
@@ -38,7 +38,8 @@ public class TargetManager {
             return new BlockPos(x * 8, y, z * 8);
         }
 
-        // Default fallback (e.g., End)
-        return new BlockPos(x, y, z);
+        // Different dimensions (especially the End) require portal travel;
+        // treating their coordinates as local coordinates is misleading.
+        return null;
     }
 }

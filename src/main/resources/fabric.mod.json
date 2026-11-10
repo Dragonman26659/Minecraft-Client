@@ -1,39 +1,45 @@
 {
-	"schemaVersion": 1,
-	"id": "fukntclient",
-	"version": "${version}",
-	"name": "fukntClient",
-	"description": "This is an example description! Tell everyone what your mod is about!",
-	"authors": [
-		"Me!"
-	],
-	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
-	},
-	"license": "CC0-1.0",
-	"icon": "assets/fukntclient/icon.png",
-	"environment": "*",
-	"entrypoints": {
-		"main": [
-			"plog.fukntclient.FukntClient"
-		],
-		"client": [
-			"plog.fukntclient.client.FukntClientClient",
-			"plog.fukntclient.client.Util.Rendering.CustomRenderPipeline"
-		]
-	},
-	"mixins": [
-		"fukntclient.mixins.json",
-		{
-			"config": "fukntclient.client.mixins.json",
-			"environment": "client"
-		}
-	],
-	"depends": {
-		"fabricloader": ">=0.19.1",
-		"minecraft": "~1.21.10",
-		"java": ">=21",
-		"fabric-api": "*"
-	}
+  "schemaVersion": 1,
+  "id": "fukntclient",
+  "version": "${version}",
+  "name": "fukntClient",
+  "description": "Fabric client utility mod with bundled Baritone pathfinding integration.",
+  "authors": [
+    "Me!"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fabric-example-mod"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/fukntclient/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "plog.fukntclient.FukntClient"
+    ],
+    "client": [
+      "plog.fukntclient.client.FukntClientClient",
+      "plog.fukntclient.client.Util.Rendering.CustomRenderPipeline"
+    ]
+  },
+  "mixins": [
+    "fukntclient.mixins.json",
+    {
+      "config": "fukntclient.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.1",
+    "minecraft": "~1.21.10",
+    "java": ">=21",
+    "fabric-api": "*",
+    "baritone": ">=1.16.0"
+  },
+  "jars": [
+    {
+      "file": "META-INF/jars/baritone-api-fabric-1.16.0.jar"
+    }
+  ]
 }

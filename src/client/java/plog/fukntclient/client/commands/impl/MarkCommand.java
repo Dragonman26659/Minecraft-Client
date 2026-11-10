@@ -1,5 +1,7 @@
 package plog.fukntclient.client.commands.impl;
 
+import java.util.List;
+import java.util.ArrayList;
 import net.minecraft.client.Minecraft;
 import plog.fukntclient.client.FukntClientClient;
 import plog.fukntclient.client.Managers.LocationData;
@@ -77,5 +79,14 @@ public class MarkCommand extends Command {
             default:
                 throw new CommandException("Unknown action. Usage: " + getUsage());
         }
+    }
+
+    @Override
+    public List<String> suggest(String[] args) {
+        if (args.length == 1) return List.of("save", "show", "target", "remove");
+        if (args.length == 2 && (args[0].equalsIgnoreCase("target") || args[0].equalsIgnoreCase("remove"))) {
+            return new ArrayList<>(FukntClientClient.markManager.getCurrentMarks().keySet());
+        }
+        return List.of();
     }
 }
