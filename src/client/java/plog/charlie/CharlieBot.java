@@ -2,269 +2,213 @@ package plog.charlie;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.ColorRGBA;
-import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
-import plog.fukntclient.client.Util.RenderUtil;
+import net.minecraft.world.level.block.state.BlockState;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
 
 /**
- * GOAP-based top-level controller for CharlieBot.
- *
- * ── How goals work ───────────────────────────────────────────────────────────
- * Goals are stored in a true LIFO stack (ArrayDeque used as a stack).
- * The top of the stack is the currently executing goal.  Sub-goals are pushed
- * on top; when they complete they are popped and the parent resumes.
- *
- * ── Public command API ───────────────────────────────────────────────────────
- *   bot.goTo(pos)              – navigate to a position
- *   bot.mine(block)            – find and mine the nearest block of that type
- *   bot.place(pos, block)      – place a specific block at a position
- *   bot.placeAny(pos)          – place any block at a position
- *   bot.stop()                 – clear everything
+ * Charlie is the single owner of bot goals and Baritone processes.
+ * Baritone performs every movement, mining and placement action. Charlie only
+ * sequences high-level goals and exposes the current plan to the HUD.
  */
 public class CharlieBot {
-
-    // ── Sub-systems ────────────────────────────────────────────────────────────
-    private final Pathfinder pathfinder = new Pathfinder();
-    private final Miner      miner      = new Miner();
-    private final Placer     placer     = new Placer();
-
-    // ── GOAP stack ─────────────────────────────────────────────────────────────
+    private final Minecraft mc = Minecraft.getInstance();
     private final Deque<Goal> goalStack = new ArrayDeque<>();
 
-    private final Minecraft mc = Minecraft.getInstance();
-
-    // ── Pickup config ──────────────────────────────────────────────────────────
-    private static final double PICKUP_SCAN_RADIUS  = 8.0;
-    private static final double PICKUP_COLLECT_DIST = 1.0;
-    private static final int    PICKUP_TIMEOUT      = 80;
-    private static final ColorRGBA COLOR_PICKUP = new ColorRGBA(0x8000FF80);
-
-    // ── Init ───────────────────────────────────────────────────────────────────
-
     public CharlieBot() {
-        // Wire the placer into the pathfinder so it can bridge gaps autonomously.
-        pathfinder.setPlacer(placer);
+        BaritoneBridge.initialize();
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Public command interface
-    // ══════════════════════════════════════════════════════════════════════════
+    public void goTo(BlockPos pos) {
+        clearGoals();
+        pushGoal(new GoToGoal(pos));
+    }
 
-    public void goTo(BlockPos pos)          { clearGoals(); pushGoal(new GoToGoal(pos)); }
-    public void mine(Block type)            { clearGoals(); pushGoal(new MineGoal(type)); }
-    public void place(BlockPos pos, Block b){ clearGoals(); pushGoal(new PlaceGoal(pos, b)); }
-    public void placeAny(BlockPos pos)      { clearGoals(); pushGoal(new PlaceGoal(pos, null)); }
+    public void mine(Block block) {
+        clearGoals();
+        pushGoal(new MineGoal(block));
+    }
+
+    public void place(BlockPos pos, Block block) {
+        clearGoals();
+        pushGoal(new PlaceGoal(pos, block == null ? null : block.defaultBlockState()));
+    }
+
+    public void placeAny(BlockPos pos) {
+        clearGoals();
+        pushGoal(new PlaceGoal(pos, null));
+    }
 
     public void stop() {
         clearGoals();
-        pathfinder.stop(false);
-        miner.stop();
-        placer.stop();
+        BaritoneBridge.stop();
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Block-break notification  (call this whenever any block is confirmed gone)
-    // ══════════════════════════════════════════════════════════════════════════
-
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Tick / Render
-    // ══════════════════════════════════════════════════════════════════════════
 
     public void onTick() {
-        if (mc.player == null || mc.level == null) return;
-        if (goalStack.isEmpty()) return;
-
+        if (mc.player == null || mc.level == null || goalStack.isEmpty()) return;
         Goal current = goalStack.peek();
-        GoalStatus status = current.tick(this);
-
-        switch (status) {
-            case DONE   -> popGoal();
-            case FAILED -> { System.out.println("[GOAP] Goal failed: " + current); popGoal(); }
-            case RUNNING -> { /* keep going */ }
+        GoalStatus status = current.tick();
+        if (status == GoalStatus.DONE) {
+            goalStack.pop();
+        } else if (status == GoalStatus.FAILED) {
+            System.err.println("[Charlie] Goal failed: " + current);
+            goalStack.pop();
+            BaritoneBridge.stop();
         }
     }
 
+    /** Baritone renders its own route, goal, mining and builder overlays. */
     public void onRender() {
-        pathfinder.onRender();
-        miner.onRender();
+        // Intentionally empty: do not draw a second, competing path overlay.
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Goal stack helpers
-    // ══════════════════════════════════════════════════════════════════════════
+    public List<String> getPlanLines() {
+        List<String> lines = new ArrayList<>();
+        for (Goal goal : goalStack) lines.add(goal.toString());
+        return lines;
+    }
 
-    void pushGoal(Goal g)  { goalStack.push(g); }
-    private void popGoal() { if (!goalStack.isEmpty()) goalStack.pop(); }
+    public String getCurrentPlan() {
+        return goalStack.isEmpty() ? "Idle" : goalStack.peek().toString();
+    }
+
+    private void pushGoal(Goal goal) { goalStack.push(goal); }
     private void clearGoals() { goalStack.clear(); }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Status / interface
-    // ══════════════════════════════════════════════════════════════════════════
-
-    enum GoalStatus { RUNNING, DONE, FAILED }
-
-    interface Goal {
-        GoalStatus tick(CharlieBot bot);
+    private enum GoalStatus { RUNNING, DONE, FAILED }
+    private interface Goal {
+        GoalStatus tick();
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // GoToGoal
-    // ══════════════════════════════════════════════════════════════════════════
-
-    class GoToGoal implements Goal {
+    private final class GoToGoal implements Goal {
         private final BlockPos target;
-        private boolean started = false;
+        private boolean started;
+        private boolean sawActive;
+        private int idleTicks;
 
-        GoToGoal(BlockPos target) { this.target = target; }
+        private GoToGoal(BlockPos target) { this.target = target.immutable(); }
 
-        @Override
-        public GoalStatus tick(CharlieBot bot) {
-            if (!started) { pathfinder.goTo(target); started = true; }
-            pathfinder.tick();
-            return pathfinder.isActive() ? GoalStatus.RUNNING : GoalStatus.DONE;
-        }
-
-        @Override public String toString() { return "GoToGoal(" + target + ")"; }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // MineGoal
-    // ══════════════════════════════════════════════════════════════════════════
-
-    class MineGoal implements Goal {
-        private final Block blockType;
-        private boolean started = false;
-
-        MineGoal(Block blockType) { this.blockType = blockType; }
-
-        @Override
-        public GoalStatus tick(CharlieBot bot) {
-            if (!started) { miner.start(blockType); started = true; }
-
-            Miner.MineResult result = miner.tick();
-
-            switch (result) {
-                case NEEDS_CLOSER -> {
-                    BlockPos target = miner.getTargetPos();
-                    if (target != null && !pathfinder.isActive()) {
-                        bot.pushGoal(new GoToGoal(target));
-                    } else {
-                        pathfinder.tick();
-                    }
-                }
-                case DONE -> {
-                    // Notify subsystems about the broken block before doing anything else.
-                    // This lets the pathfinder replan before the PickupGoal starts moving.
-                    if (miner.dropPos != null) {
-                        bot.pushGoal(new PickupGoal(Vec3.atCenterOf(miner.dropPos)));
-                    }
-                    return GoalStatus.DONE;
-                }
-                case BLOCKED -> { return GoalStatus.FAILED; }
-                case MINING, SEARCHING -> { /* continue */ }
-            }
-            return GoalStatus.RUNNING;
-        }
-
-        @Override public String toString() { return "MineGoal(" + blockType + ")"; }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // PlaceGoal
-    // ══════════════════════════════════════════════════════════════════════════
-
-    class PlaceGoal implements Goal {
-        private final BlockPos pos;
-        private final Block    block;
-        private boolean started = false;
-
-        PlaceGoal(BlockPos pos, Block block) { this.pos = pos; this.block = block; }
-
-        @Override
-        public GoalStatus tick(CharlieBot bot) {
-            if (!started) {
-                if (block != null) placer.placeSpecific(pos, block);
-                else               placer.placeAny(pos);
-                started = true;
-            }
-
-            Placer.PlaceResult result = placer.tick();
-
-            switch (result) {
-                case NEEDS_CLOSER -> {
-                    if (!pathfinder.isActive()) bot.pushGoal(new GoToGoal(pos));
-                    else                        pathfinder.tick();
-                }
-                case NEEDS_BLOCK -> {
-                    Block needed = placer.pendingBlockRequest;
-                    if (needed != null) {
-                        System.out.println("[GOAP] Need block: " + needed + " – queuing MineGoal");
-                        bot.pushGoal(new MineGoal(needed));
-                    } else {
-                        System.out.println("[GOAP] PlaceGoal: no block type available.");
-                        return GoalStatus.FAILED;
-                    }
-                }
-                case DONE    -> { return GoalStatus.DONE; }
-                case BLOCKED -> { return GoalStatus.FAILED; }
-                case PLACING -> { /* continue */ }
-            }
-            return GoalStatus.RUNNING;
-        }
-
-        @Override public String toString() { return "PlaceGoal(" + pos + ", " + block + ")"; }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // PickupGoal
-    // ══════════════════════════════════════════════════════════════════════════
-
-    class PickupGoal implements Goal {
-        private final Vec3 origin;
-        private int ticks = 0;
-
-        PickupGoal(Vec3 origin) { this.origin = origin; }
-
-        @Override
-        public GoalStatus tick(CharlieBot bot) {
-            if (mc.player == null || mc.level == null) return GoalStatus.FAILED;
-
-            List<ItemEntity> drops = mc.level.getEntitiesOfClass(
-                    ItemEntity.class,
-                    new AABB(origin.subtract(PICKUP_SCAN_RADIUS, PICKUP_SCAN_RADIUS, PICKUP_SCAN_RADIUS),
-                            origin.add   (PICKUP_SCAN_RADIUS, PICKUP_SCAN_RADIUS, PICKUP_SCAN_RADIUS)),
-                    i -> !i.getItem().isEmpty());
-
-            if (drops.isEmpty() || ticks++ > PICKUP_TIMEOUT) {
-                pathfinder.stop(false);
+        @Override public GoalStatus tick() {
+            if (mc.player.blockPosition().closerThan(target, 2.0)) {
+                if (started) BaritoneBridge.stop();
                 return GoalStatus.DONE;
             }
-
-            ItemEntity closest = drops.stream()
-                    .min(Comparator.comparingDouble(i -> mc.player.distanceToSqr(i)))
-                    .orElse(null);
-
-            if (closest != null) {
-                RenderUtil.renderWireFrame(closest.blockPosition(), COLOR_PICKUP);
-
-                if (mc.player.distanceTo(closest) > PICKUP_COLLECT_DIST) {
-                    BlockPos dropPos = closest.blockPosition();
-                    if (!pathfinder.isActive()) bot.pushGoal(new GoToGoal(dropPos));
-                    else                        pathfinder.tick();
-                } else {
-                    pathfinder.stop(false);
+            if (!started) {
+                try {
+                    BaritoneBridge.goTo(target);
+                    started = true;
+                } catch (IllegalStateException e) {
+                    System.err.println("[Charlie] " + e.getMessage());
+                    return GoalStatus.FAILED;
                 }
+                return GoalStatus.RUNNING;
             }
-
+            if (BaritoneBridge.isPathing()) {
+                sawActive = true;
+                idleTicks = 0;
+            } else if (sawActive) {
+                // The goal process has finished. Re-check distance before deciding.
+                return mc.player.blockPosition().closerThan(target, 2.0)
+                        ? GoalStatus.DONE : GoalStatus.FAILED;
+            } else if (++idleTicks > 80) {
+                return GoalStatus.FAILED;
+            }
             return GoalStatus.RUNNING;
         }
 
-        @Override public String toString() { return "PickupGoal(" + origin + ")"; }
+        @Override public String toString() {
+            return "Baritone: navigate to " + target.getX() + ", " + target.getY() + ", " + target.getZ();
+        }
+    }
+
+    private final class MineGoal implements Goal {
+        private final Block block;
+        private boolean started;
+        private boolean sawActive;
+        private int startupTicks;
+
+        private MineGoal(Block block) { this.block = block; }
+
+        @Override public GoalStatus tick() {
+            if (!started) {
+                try {
+                    BaritoneBridge.mine(block);
+                    started = true;
+                } catch (IllegalStateException e) {
+                    System.err.println("[Charlie] " + e.getMessage());
+                    return GoalStatus.FAILED;
+                }
+                return GoalStatus.RUNNING;
+            }
+            if (BaritoneBridge.isMining()) {
+                sawActive = true;
+                startupTicks = 0;
+                return GoalStatus.RUNNING;
+            }
+            if (sawActive) return GoalStatus.DONE;
+            // Give Baritone time to take process control on its next client tick.
+            return ++startupTicks > 80 ? GoalStatus.FAILED : GoalStatus.RUNNING;
+        }
+
+        @Override public String toString() { return "Baritone: mine " + block; }
+    }
+
+    private final class PlaceGoal implements Goal {
+        private final BlockState requestedState;
+        private boolean started;
+        private boolean sawActive;
+        private int startupTicks;
+        private BlockPos target;
+
+        private PlaceGoal(BlockPos target, BlockState requestedState) {
+            this.target = target.immutable();
+            this.requestedState = requestedState;
+        }
+
+        @Override public GoalStatus tick() {
+            if (!started) {
+                BlockState state = requestedState;
+                if (state == null) state = findHotbarBlockState();
+                if (state == null) {
+                    System.err.println("[Charlie] Place goal needs a block in the hotbar.");
+                    return GoalStatus.FAILED;
+                }
+                if (!mc.level.getBlockState(target).isAir()) return GoalStatus.DONE;
+                try {
+                    BaritoneBridge.place(target, state);
+                    started = true;
+                } catch (IllegalStateException e) {
+                    System.err.println("[Charlie] " + e.getMessage());
+                    return GoalStatus.FAILED;
+                }
+                return GoalStatus.RUNNING;
+            }
+            if (!mc.level.getBlockState(target).isAir()) return GoalStatus.DONE;
+            if (BaritoneBridge.isBuilding()) {
+                sawActive = true;
+                startupTicks = 0;
+                return GoalStatus.RUNNING;
+            }
+            if (sawActive) return GoalStatus.FAILED;
+            return ++startupTicks > 80 ? GoalStatus.FAILED : GoalStatus.RUNNING;
+        }
+
+        private BlockState findHotbarBlockState() {
+            for (int slot = 0; slot < 9; slot++) {
+                ItemStack stack = mc.player.getInventory().getItem(slot);
+                if (!stack.isEmpty() && stack.getItem() instanceof BlockItem blockItem) {
+                    return blockItem.getBlock().defaultBlockState();
+                }
+            }
+            return null;
+        }
+
+        @Override public String toString() { return "Baritone: place " + (requestedState == null ? "hotbar block" : requestedState.getBlock()) + " at " + target.getX() + ", " + target.getY() + ", " + target.getZ(); }
     }
 }

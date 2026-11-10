@@ -40,14 +40,25 @@ public final class CommandManager {
         String[] args = message.substring(PREFIX.length()).split(" ");
 
         if (args.length == 0 || args[0].isEmpty()) {
-            Command.sendMessage("Type " + PREFIX + "help for a list of commands");
+            Command.sendMessage("Type " + PREFIX + "fhelp for FukntClient commands");
             return true;
         }
 
+        // Preserve Baritone's native command names where FukntClient has a
+        // similarly named convenience command. #goto mark/stop remain Charlie commands.
+        String name = args[0].toLowerCase(Locale.ROOT);
+        if (name.equals("help") || name.equals("mine")) return false;
+        if (name.equals("goto") && (args.length < 2
+                || (!args[1].equalsIgnoreCase("mark") && !args[1].equalsIgnoreCase("stop")))) {
+            return false;
+        }
+
+        Optional<Command> command = getCommand(args[0]);
+        // Unknown commands must be allowed through to Baritone's chat listener.
+        if (command.isEmpty()) return false;
+
         try {
-            getCommand(args[0]).orElseThrow(() ->
-                            new CommandException("Command '" + args[0] + "' not found. Use " + PREFIX + "help"))
-                    .execute(Arrays.copyOfRange(args, 1, args.length));
+            command.get().execute(Arrays.copyOfRange(args, 1, args.length));
             return true;
         } catch (CommandException e) {
             Command.sendMessage("§c" + e.getMessage());

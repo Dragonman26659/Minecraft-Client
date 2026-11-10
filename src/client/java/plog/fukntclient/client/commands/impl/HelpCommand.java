@@ -6,7 +6,7 @@ import plog.fukntclient.client.commands.CommandInfo;
 import plog.fukntclient.client.commands.CommandManager;
 import plog.fukntclient.client.exeption.CommandException;
 
-@CommandInfo(name = "help", usage = ".help", description = "Lists all commands", aliases = {"h", "?"})
+@CommandInfo(name = "fhelp", usage = "#fhelp", description = "Lists FukntClient commands", aliases = {"fh"})
 public class HelpCommand extends Command {
 
     @Override

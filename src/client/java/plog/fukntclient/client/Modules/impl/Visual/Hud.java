@@ -26,6 +26,7 @@ public class Hud extends Module {
     public final BooleanSetting showNetherCoords = new BooleanSetting("Nether Coords", true);
     public final BooleanSetting showBiome        = new BooleanSetting("Show Biome", true);
     public final BooleanSetting showTarget = new BooleanSetting("Show Target", true);
+    public final BooleanSetting showBotPlan = new BooleanSetting("Show Bot Plan", true);
     public final BooleanSetting showFps          = new BooleanSetting("Show FPS", true);
     public final BooleanSetting showDirection    = new BooleanSetting("Show Direction", true);
     public final BooleanSetting showHealth       = new BooleanSetting("Show Health", true);
@@ -40,7 +41,7 @@ public class Hud extends Module {
 
     public Hud() {
         addSettings(showModules, showCoords, showNetherCoords, showBiome, showFps,
-                showDirection, showTarget, showHealth, background, textColor, accentColor, bgColor);
+                showDirection, showTarget, showBotPlan, showHealth, background, textColor, accentColor, bgColor);
     }
 
     @Override
@@ -125,14 +126,31 @@ public class Hud extends Module {
             String currentDim = mc.level.dimension().location().toString();
             // Get the coordinates scaled correctly for the dimension we are currently in
             BlockPos scaledPos = FukntClientClient.tm.getScaledPos(currentDim);
+            if (scaledPos != null) {
+                double dist = mc.player.distanceToSqr(scaledPos.getX(), scaledPos.getY(), scaledPos.getZ());
+                String distStr = String.format("%.1fm", Math.sqrt(dist));
 
-            double dist = mc.player.distanceToSqr(scaledPos.getX(), scaledPos.getY(), scaledPos.getZ());
-            String distStr = String.format("%.1fm", Math.sqrt(dist));
+                // Calculate if looking at the scaled target
+                String directionStatus = isLookingAt(mc, scaledPos) ? "§aLocked" : "§cAway";
+                lines.add(new String[]{"Target: ", distStr + " (" + directionStatus + "§r)"});
+            } else {
+                lines.add(new String[]{"Target: ", "Different dimension"});
+            }
+        }
 
-            // Calculate if looking at the scaled target
-            String directionStatus = isLookingAt(mc, scaledPos) ? "§aLocked" : "§cAway";
-
-            lines.add(new String[]{"Target: ", distStr + " (" + directionStatus + "§r)"});
+        if (showBotPlan.isActive() && FukntClientClient.Charlie != null) {
+            List<String> plan = FukntClientClient.Charlie.getPlanLines();
+            if (plan.isEmpty()) {
+                lines.add(new String[]{"Charlie: ", "Idle"});
+            } else {
+                lines.add(new String[]{"Charlie: ", plan.get(0)});
+                for (int i = 1; i < Math.min(plan.size(), 4); i++) {
+                    lines.add(new String[]{"  Next: ", plan.get(i)});
+                }
+                if (plan.size() > 4) {
+                    lines.add(new String[]{"  ... ", (plan.size() - 4) + " more"});
+                }
+            }
         }
 
         if (showDirection.isActive()) {

@@ -27,17 +27,53 @@ loom {
 
 }
 
+def baritoneVersion = project.findProperty("baritone_version") ?: "1.16.0"
+def baritoneFileName = "baritone-api-fabric-${baritoneVersion}.jar"
+def baritoneJar = layout.projectDirectory.file("libs/${baritoneFileName}").asFile
+def baritoneDownloadUrl = "https://github.com/cabaletta/baritone/releases/download/v${baritoneVersion}/${baritoneFileName}"
+
+tasks.register("downloadBaritone") {
+	group = "build setup"
+	description = "Downloads the matching official Baritone Fabric API jar."
+	outputs.file(baritoneJar)
+	doLast {
+		if (!baritoneJar.exists()) {
+			baritoneJar.parentFile.mkdirs()
+			logger.lifecycle("Downloading Baritone ${baritoneVersion} for Fabric...")
+			new URL(baritoneDownloadUrl).with { url ->
+				URLConnection connection = url.openConnection()
+				connection.connectTimeout = 15000
+				connection.readTimeout = 60000
+				connection.getInputStream().withCloseable { input ->
+					baritoneJar.withOutputStream { output -> output << input }
+				}
+			}
+		}
+	}
+}
+
+tasks.configureEach {
+	if (name in ["compileJava", "compileClientJava", "jar", "remapJar"]) {
+		dependsOn(tasks.named("downloadBaritone"))
+	}
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings loom.officialMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	compileOnly 'org.projectlombok:lombok:1.18.32'
-	annotationProcessor 'org.projectlombok:lombok:1.18.32'
+	compileOnly 'org.projectlombok:lombok:1.18.42'
+	annotationProcessor 'org.projectlombok:lombok:1.18.42'
 
 	implementation 'org.reflections:reflections:0.10.2'
 	include 'org.reflections:reflections:0.10.2'
+
+	// Baritone is downloaded automatically and nested as a Fabric mod dependency.
+	// Its Fabric metadata is retained, so Fabric Loader discovers and initialises it.
+	modImplementation files(baritoneJar)
+	include files(baritoneJar)
 
 	implementation 'org.javassist:javassist:3.29.2-GA'
 	include 'org.javassist:javassist:3.29.2-GA'

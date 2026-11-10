@@ -1,0 +1,8 @@
+FukntClient integrates the Baritone Fabric build v1.16.0 for Minecraft 1.21.9-1.21.10.
+Baritone is Copyright its respective contributors and is licensed under GNU LGPL v3.0.
+Source: https://github.com/cabaletta/baritone
+License: https://www.gnu.org/licenses/lgpl-3.0.html
+
+When distributing FukntClient with the Baritone jar, include the Baritone LGPL license
+and comply with the LGPL requirements for the bundled library (including access to the
+corresponding source and notices). This notice is not a substitute for the license.

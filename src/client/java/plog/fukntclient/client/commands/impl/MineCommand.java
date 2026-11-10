@@ -11,7 +11,7 @@ import plog.fukntclient.client.exeption.CommandException;
 
 import java.util.Optional;
 
-@CommandInfo(name = "mine", usage = "#mine <block>  |  #mine stop", description = "Mine the nearest block of a given type", aliases = {"dig"})
+@CommandInfo(name = "charliemine", usage = "#charliemine <block>  |  #charliemine stop", description = "Mine the nearest block of a given type using Charlie", aliases = {"dig"})
 public class MineCommand extends Command {
 
     @Override
