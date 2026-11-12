@@ -37,13 +37,14 @@ public class DropdownGUI extends Screen {
                 frames.add(cf);
                 offset += FRAME_WIDTH + 4;
             }
-        }
 
-        for (CategoryFrame cf : frames) {
-            this.addRenderableWidget(cf);
-            for (ModuleFrame mf : cf.modules) {
-                for (SettingFrame sf : mf.settings) {
-                    this.addRenderableWidget(sf);
+            // only register once, right after building
+            for (CategoryFrame cf : frames) {
+                this.addRenderableWidget(cf);
+                for (ModuleFrame mf : cf.modules) {
+                    for (SettingFrame sf : mf.settings) {
+                        this.addRenderableWidget(sf);
+                    }
                 }
             }
         }
